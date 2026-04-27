@@ -15,8 +15,7 @@ app.get('/', (req, res) => {
 });
 
 // ─── Game Constants ───────────────────────────────────────────────────────────
-const GAME_DURATION = 300; // 5 minutes in seconds
-const MAX_PLAYERS   = 4;
+const MAX_PLAYERS = 4;
 
 const GEM_TYPES = [
   { name: 'Coal',      emoji: '🪨', value: 1,    rarity: 0.45  },
@@ -63,7 +62,6 @@ const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
 // ─── In-memory store ──────────────────────────────────────────────────────────
-// lobbies: Map<code, lobbyObj>
 const lobbies = new Map();
 
 function generateCode() {
@@ -77,14 +75,15 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     avatar: PLAYER_AVATARS[avatarIndex % PLAYER_AVATARS.length],
     color:  PLAYER_COLORS[colorIndex  % PLAYER_COLORS.length],
     totalGems: 0,
-    profit: 0,
+    profit: 0,        // money in hand (from selling)
+    totalEarned: 0,   // lifetime earnings
     totalClicks: 0,
     gemsPerClick: 1,
     autoMine: 0,
     valueMultiplier: 1,
     rarityBonus: 0,
     upgradesBought: 0,
-    inventory: {},
+    inventory: {},    // gems stored, NOT yet sold
     achievementsUnlocked: [],
     upgradeLevels: {},
   };
@@ -151,35 +150,43 @@ function broadcastGameState(lobby) {
     color: p.state.color,
     totalGems: p.state.totalGems,
     profit: p.state.profit,
+    totalEarned: p.state.totalEarned,
     totalClicks: p.state.totalClicks,
     autoMine: p.state.autoMine,
     upgradesBought: p.state.upgradesBought,
     achievementsUnlocked: p.state.achievementsUnlocked,
+    // include inventory count so leaderboard can show unsold gems
+    unsoldValue: calcInventoryValue(p.state),
   }));
-  io.to(lobby.code).emit('game:state', { players: snapshot, timeLeft: lobby.timeLeft });
+  io.to(lobby.code).emit('game:state', { players: snapshot });
 }
 
-function startGameTimer(lobby) {
+function calcInventoryValue(state) {
+  let total = 0;
+  for (const gem of GEM_TYPES) {
+    const count = state.inventory[gem.name] || 0;
+    total += count * Math.floor(gem.value * state.valueMultiplier);
+  }
+  return total;
+}
+
+function startAutoMineInterval(lobby) {
   lobby.timer = setInterval(() => {
-    lobby.timeLeft--;
-    broadcastGameState(lobby);
-    // Auto-mine tick for all players
+    let anyAutoMiner = false;
     for (const [sid, p] of Object.entries(lobby.players)) {
       if (p.state.autoMine > 0) {
+        anyAutoMiner = true;
         for (let i = 0; i < p.state.autoMine; i++) {
           const gem = rollGem(p.state);
           p.state.inventory[gem.name] = (p.state.inventory[gem.name] || 0) + 1;
           p.state.totalGems++;
-          p.state.profit += Math.floor(gem.value * p.state.valueMultiplier);
         }
         const newAch = checkAchievements(p.state);
-        if (newAch.length) {
-          io.to(sid).emit('achievements:unlocked', newAch);
-        }
+        if (newAch.length) io.to(sid).emit('achievements:unlocked', newAch);
         io.to(sid).emit('player:self', playerSelfPayload(p.state));
       }
     }
-    if (lobby.timeLeft <= 0) endGame(lobby);
+    if (anyAutoMiner) broadcastGameState(lobby);
   }, 1000);
 }
 
@@ -187,6 +194,7 @@ function playerSelfPayload(state) {
   return {
     totalGems: state.totalGems,
     profit: state.profit,
+    totalEarned: state.totalEarned,
     totalClicks: state.totalClicks,
     gemsPerClick: state.gemsPerClick,
     autoMine: state.autoMine,
@@ -208,11 +216,12 @@ function endGame(lobby) {
       avatar: p.state.avatar,
       color: p.state.color,
       profit: p.state.profit,
+      totalEarned: p.state.totalEarned,
       totalGems: p.state.totalGems,
+      unsoldValue: calcInventoryValue(p.state),
     }))
-    .sort((a, b) => b.profit - a.profit);
+    .sort((a, b) => b.totalEarned - a.totalEarned);
   io.to(lobby.code).emit('game:ended', { results });
-  // Clean up lobby after 2 minutes
   setTimeout(() => lobbies.delete(lobby.code), 120_000);
 }
 
@@ -227,10 +236,9 @@ io.on('connection', (socket) => {
 
     const lobby = {
       code,
-      status: 'waiting', // waiting | playing | ended
+      status: 'waiting',
       hostId: socket.id,
       players: {},
-      timeLeft: GAME_DURATION,
       timer: null,
     };
 
@@ -261,6 +269,19 @@ io.on('connection', (socket) => {
     broadcastLobbyState(lobby);
   });
 
+  // ── Rename player (lobby only) ──
+  socket.on('lobby:rename', ({ name }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+    const trimmed = (name || '').trim().slice(0, 16);
+    if (!trimmed) return callback?.({ ok: false, error: 'Name cannot be empty.' });
+    p.state.name = trimmed;
+    callback?.({ ok: true });
+    broadcastLobbyState(lobby);
+  });
+
   // ── Start game (host only) ──
   socket.on('game:start', (_, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
@@ -270,7 +291,18 @@ io.on('connection', (socket) => {
 
     lobby.status = 'playing';
     io.to(lobby.code).emit('game:started');
-    startGameTimer(lobby);
+    startAutoMineInterval(lobby);
+    broadcastGameState(lobby);
+    callback?.({ ok: true });
+  });
+
+  // ── End game (host only) ──
+  socket.on('game:end', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can end.' });
+    if (lobby.status !== 'playing') return callback?.({ ok: false, error: 'Game not in progress.' });
+    endGame(lobby);
     callback?.({ ok: true });
   });
 
@@ -287,7 +319,7 @@ io.on('connection', (socket) => {
       const gem = rollGem(p.state);
       p.state.inventory[gem.name] = (p.state.inventory[gem.name] || 0) + 1;
       p.state.totalGems++;
-      p.state.profit += Math.floor(gem.value * p.state.valueMultiplier);
+      // NOTE: profit is NOT added here anymore — gems must be sold first
       if (gem.value >= 18) drops.push({ emoji: gem.emoji, name: gem.name });
     }
     p.state.totalClicks++;
@@ -296,6 +328,34 @@ io.on('connection', (socket) => {
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
 
     callback?.({ ok: true, gemsAdded: count, drops, self: playerSelfPayload(p.state) });
+  });
+
+  // ── Sell gems ──
+  socket.on('game:sell', ({ gemName, quantity }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'playing') return callback?.({ ok: false, error: 'Not in game.' });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+
+    const gem = GEM_TYPES.find(g => g.name === gemName);
+    if (!gem) return callback?.({ ok: false, error: 'Unknown gem.' });
+
+    const held = p.state.inventory[gemName] || 0;
+    // quantity = -1 means sell all
+    const toSell = quantity === -1 ? held : Math.min(quantity, held);
+    if (toSell <= 0) return callback?.({ ok: false, error: 'None to sell.' });
+
+    const earned = toSell * Math.floor(gem.value * p.state.valueMultiplier);
+    p.state.inventory[gemName] = held - toSell;
+    if (p.state.inventory[gemName] === 0) delete p.state.inventory[gemName];
+    p.state.profit += earned;
+    p.state.totalEarned += earned;
+
+    const newAch = checkAchievements(p.state);
+    if (newAch.length) socket.emit('achievements:unlocked', newAch);
+
+    broadcastGameState(lobby);
+    callback?.({ ok: true, earned, self: playerSelfPayload(p.state) });
   });
 
   // ── Buy upgrade ──
@@ -340,7 +400,6 @@ io.on('connection', (socket) => {
       clearInterval(lobby.timer);
       lobbies.delete(code);
     } else {
-      // Pass host if host left
       if (lobby.hostId === socket.id) {
         lobby.hostId = Object.keys(lobby.players)[0];
         io.to(lobby.code).emit('lobby:newHost', { hostId: lobby.hostId });
