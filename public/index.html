@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEM RUSH — Multiplayer Mining</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root {
+    --bg:#0a0c10; --surface:#12151c; --surface2:#1a1e28; --border:#2a2f3e;
+    --gold:#f5c842; --gold2:#e8a020; --ruby:#e84040; --emerald:#30d97a;
+    --sapphire:#4090f5; --text:#e8eaf0; --muted:#6a7090;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(245,200,66,.04),transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(64,144,245,.04),transparent 60%);pointer-events:none;z-index:0;}
+
+  .screen{display:none;position:relative;z-index:1;}
+  .screen.active{display:flex;}
+
+  /* ── TITLE ── */
+  #title-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+  .title-logo{text-align:center;margin-bottom:3rem;animation:logoIn .8s cubic-bezier(.16,1,.3,1) both;}
+  @keyframes logoIn{from{opacity:0;transform:translateY(-30px) scale(.95)}to{opacity:1;transform:none}}
+  .title-logo h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(4rem,12vw,9rem);letter-spacing:.05em;line-height:.9;background:linear-gradient(135deg,#f5c842 0%,#e8a020 40%,#ff6060 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 40px rgba(245,200,66,.4));}
+  .title-logo p{font-size:1.1rem;letter-spacing:.4em;text-transform:uppercase;color:var(--muted);margin-top:.5rem;}
+  .gem-row{display:flex;gap:.6rem;justify-content:center;margin:1rem 0;font-size:1.6rem;animation:float 3s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  .title-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2.5rem;width:100%;max-width:440px;animation:cardIn .8s .2s cubic-bezier(.16,1,.3,1) both;}
+  @keyframes cardIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+  .title-card h2{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:.1em;color:var(--gold);margin-bottom:1.5rem;border-bottom:1px solid var(--border);padding-bottom:.8rem;}
+  .field-group{margin-bottom:1.2rem;}
+  .field-group label{display:block;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;}
+  .field-group input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:1rem;outline:none;transition:border-color .2s;}
+  .field-group input:focus{border-color:var(--gold);}
+  .btn{display:block;width:100%;padding:.9rem 1.5rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.15em;cursor:pointer;border:none;transition:all .15s;}
+  .btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1200;}
+  .btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 4px 20px rgba(245,200,66,.35);}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);margin-top:.7rem;}
+  .btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
+  .divider{text-align:center;color:var(--muted);font-size:.75rem;letter-spacing:.2em;margin:1.2rem 0;position:relative;}
+  .divider::before,.divider::after{content:'';position:absolute;top:50%;width:calc(50% - 2rem);height:1px;background:var(--border);}
+  .divider::before{left:0;}.divider::after{right:0;}
+  .error-msg{color:var(--ruby);font-size:.85rem;margin-top:.5rem;display:none;}
+
+  /* ── LOBBY ── */
+  #lobby-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+  .lobby-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2.5rem;width:100%;max-width:560px;}
+  .lobby-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.5rem;}
+  .lobby-header h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);letter-spacing:.1em;}
+  .lobby-code{font-family:'Share Tech Mono',monospace;font-size:1rem;color:var(--muted);background:var(--surface2);padding:.3rem .8rem;border-radius:6px;border:1px solid var(--border);}
+  .lobby-code span{color:var(--gold);}
+  .player-slots{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.5rem;}
+  .player-slot{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:80px;display:flex;align-items:center;gap:.8rem;transition:border-color .2s;}
+  .player-slot.filled{border-color:var(--emerald);}
+  .player-slot.you{border-color:var(--gold);}
+  .slot-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;}
+  .slot-name{font-weight:700;font-size:1rem;}
+  .slot-sub{font-size:.75rem;color:var(--muted);letter-spacing:.1em;}
+  .you-badge{font-family:'Share Tech Mono',monospace;font-size:.6rem;background:var(--gold);color:#1a1200;padding:.1rem .4rem;border-radius:3px;margin-left:.4rem;}
+  .lobby-actions{display:flex;gap:.8rem;}
+  .lobby-actions .btn{flex:1;}
+  .copy-hint{font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:.8rem;cursor:pointer;}
+  .copy-hint:hover{color:var(--gold);}
+
+  /* ── GAME ── */
+  #game-screen{flex-direction:column;min-height:100vh;}
+  .game-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+  .game-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:.1em;}
+  .timer-display{font-family:'Share Tech Mono',monospace;font-size:1.1rem;color:var(--text);background:var(--surface2);padding:.3rem 1rem;border-radius:6px;border:1px solid var(--border);}
+  .timer-display span{color:var(--gold);}
+  .game-layout{display:grid;grid-template-columns:1fr 320px;flex:1;overflow:hidden;}
+  .mine-area{padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1.2rem;overflow-y:auto;}
+  .stats-row{display:flex;gap:1rem;width:100%;max-width:480px;}
+  .stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;text-align:center;}
+  .stat-box .stat-val{font-family:'Share Tech Mono',monospace;font-size:1.3rem;color:var(--gold);display:block;}
+  .stat-box .stat-lbl{font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);}
+  .mine-btn-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:.8rem;}
+  .mine-button{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2a2f3e,#12151c);border:3px solid var(--border);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:4rem;transition:all .08s;position:relative;overflow:hidden;user-select:none;}
+  .mine-button::before{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(245,200,66,.08),transparent 70%);opacity:0;transition:opacity .15s;}
+  .mine-button:hover::before{opacity:1;}
+  .mine-button:active,.mine-button.clicking{transform:scale(.93);box-shadow:0 0 30px rgba(245,200,66,.2);border-color:var(--gold);}
+  .mine-button .pick-icon{font-size:4rem;pointer-events:none;transition:transform .1s;}
+  .mine-button.clicking .pick-icon{transform:rotate(-25deg) scale(1.1);}
+  .mine-label{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.2em;color:var(--muted);}
+  .mine-power{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);background:var(--surface);padding:.25rem .8rem;border-radius:4px;border:1px solid var(--border);}
+  .particle{position:fixed;pointer-events:none;font-size:1rem;font-family:'Share Tech Mono',monospace;font-weight:700;z-index:999;animation:particleUp .8s ease-out forwards;}
+  @keyframes particleUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(.6)}}
+  .gem-drop{position:fixed;pointer-events:none;font-size:1.5rem;z-index:999;animation:gemDrop .9s ease-out forwards;}
+  @keyframes gemDrop{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-80px) scale(.4)}}
+
+  /* ── PANEL ── */
+  .upgrade-panel{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .panel-tabs{display:flex;border-bottom:1px solid var(--border);}
+  .panel-tab{flex:1;padding:.7rem;text-align:center;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;}
+  .panel-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+  .panel-content{flex:1;overflow-y:auto;padding:.8rem;}
+  .panel-content::-webkit-scrollbar{width:4px;}
+  .panel-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+  /* Upgrade card */
+  .upgrade-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.9rem;margin-bottom:.6rem;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+  .upgrade-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(245,200,66,.05),transparent);opacity:0;transition:opacity .15s;}
+  .upgrade-card:hover::before{opacity:1;}
+  .upgrade-card.can-afford{border-color:rgba(245,200,66,.3);}
+  .upgrade-card.can-afford:hover{border-color:var(--gold);transform:translateY(-1px);}
+  .upgrade-card.maxed{border-color:var(--emerald);opacity:.7;cursor:default;}
+  .upgrade-card.cant-afford{opacity:.5;cursor:not-allowed;}
+  .upg-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem;}
+  .upg-name{font-weight:700;font-size:.95rem;}
+  .upg-level{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);background:var(--border);padding:.1rem .4rem;border-radius:3px;}
+  .upg-desc{font-size:.8rem;color:var(--muted);margin-bottom:.5rem;line-height:1.3;}
+  .upg-footer{display:flex;justify-content:space-between;align-items:center;}
+  .upg-cost{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);}
+  .upg-effect{font-size:.75rem;color:var(--emerald);}
+
+  /* Player rows */
+  .player-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.8rem;margin-bottom:.6rem;}
+  .player-row.you-row{border-color:var(--gold);}
+  .pr-top{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;}
+  .pr-avatar{font-size:1.4rem;}
+  .pr-name{font-weight:700;flex:1;}
+  .pr-gems{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);}
+  .pr-bar-wrap{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .pr-bar{height:100%;border-radius:2px;transition:width .5s ease;}
+  .pr-stats-row{display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;}
+  .pr-stat{font-size:.7rem;color:var(--muted);background:var(--border);padding:.1rem .4rem;border-radius:3px;font-family:'Share Tech Mono',monospace;}
+
+  /* Achievements */
+  .ach-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.8rem;margin-bottom:.6rem;display:flex;gap:.8rem;align-items:center;}
+  .ach-card.unlocked{border-color:var(--gold);}
+  .ach-icon{font-size:1.8rem;flex-shrink:0;filter:grayscale(1);transition:filter .3s;}
+  .ach-card.unlocked .ach-icon{filter:none;}
+  .ach-name{font-weight:700;font-size:.9rem;margin-bottom:.2rem;}
+  .ach-desc{font-size:.75rem;color:var(--muted);}
+  .ach-status{margin-left:auto;font-size:.7rem;font-family:'Share Tech Mono',monospace;}
+  .ach-card.unlocked .ach-status{color:var(--gold);}
+
+  /* Toast */
+  #toast-container{position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;}
+  .toast{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:.8rem 1.2rem;display:flex;align-items:center;gap:.8rem;animation:toastIn .3s ease both;max-width:300px;box-shadow:0 4px 24px rgba(245,200,66,.2);}
+  @keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  .toast-icon{font-size:1.4rem;}
+  .toast-text{font-size:.9rem;line-height:1.3;}
+  .toast-title{font-weight:700;color:var(--gold);}
+
+  /* Connection status */
+  .conn-badge{font-family:'Share Tech Mono',monospace;font-size:.7rem;padding:.2rem .6rem;border-radius:4px;border:1px solid;}
+  .conn-badge.connected{color:var(--emerald);border-color:var(--emerald);}
+  .conn-badge.disconnected{color:var(--ruby);border-color:var(--ruby);}
+  .conn-badge.connecting{color:var(--gold);border-color:var(--gold);}
+
+  /* End screen */
+  #end-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+  .end-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2.5rem;width:100%;max-width:500px;text-align:center;}
+  .end-card h2{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold);letter-spacing:.1em;margin-bottom:.5rem;}
+  .winner-name{font-size:1.5rem;font-weight:700;margin-bottom:1.5rem;}
+  .leaderboard{width:100%;margin-bottom:1.5rem;}
+  .lb-row{display:flex;align-items:center;gap:1rem;padding:.7rem 1rem;border-radius:8px;margin-bottom:.4rem;background:var(--surface2);border:1px solid var(--border);}
+  .lb-row.first{border-color:var(--gold);background:rgba(245,200,66,.05);}
+  .lb-rank{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--muted);width:2rem;}
+  .lb-row.first .lb-rank{color:var(--gold);}
+  .lb-name{flex:1;font-weight:700;text-align:left;}
+  .lb-gems{font-family:'Share Tech Mono',monospace;color:var(--gold);}
+
+  @media(max-width:700px){
+    .game-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
+    .mine-area{padding:1rem;}
+    .upgrade-panel{border-left:none;border-top:1px solid var(--border);max-height:380px;}
+    .mine-button{width:160px;height:160px;}
+    .mine-button .pick-icon{font-size:3rem;}
+  }
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<!-- TITLE -->
+<div id="title-screen" class="screen active">
+  <div class="title-logo">
+    <div class="gem-row">💎 💍 🔮 💠 🪨</div>
+    <h1>GEM<br>RUSH</h1>
+    <p>Multiplayer Mining Battle</p>
+  </div>
+  <div class="title-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;border-bottom:1px solid var(--border);padding-bottom:.8rem;">
+      <h2 style="margin:0;border:none;padding:0;">Enter the Mine</h2>
+      <div class="conn-badge connecting" id="conn-badge">Connecting...</div>
+    </div>
+    <div class="field-group">
+      <label>Your Miner Name</label>
+      <input type="text" id="player-name" placeholder="e.g. DirtDigger99" maxlength="16">
+    </div>
+    <button class="btn btn-gold" id="btn-create" onclick="createLobby()" disabled>⚒ Create New Lobby</button>
+    <div class="divider">OR</div>
+    <div class="field-group">
+      <label>Lobby Code</label>
+      <input type="text" id="join-code" placeholder="e.g. GOLD-7432" maxlength="10" style="text-transform:uppercase">
+      <div class="error-msg" id="join-error"></div>
+    </div>
+    <button class="btn btn-outline" id="btn-join" onclick="joinLobby()" disabled>🚪 Join Existing Lobby</button>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobby-screen" class="screen">
+  <div class="lobby-card">
+    <div class="lobby-header">
+      <h2>⛏ Waiting Room</h2>
+      <div class="lobby-code">Code: <span id="lobby-code-display">----</span></div>
+    </div>
+    <p class="copy-hint" onclick="copyCode()">📋 Click to copy code and share with friends</p>
+    <div class="player-slots" id="lobby-slots"></div>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
+      Share the code above with up to 3 friends. Only the host can start the game.
+    </p>
+    <div class="lobby-actions">
+      <button class="btn btn-outline" onclick="goTitle()" style="flex:0 0 auto;width:auto;padding-left:1.2rem;padding-right:1.2rem;">← Back</button>
+      <button class="btn btn-gold" id="start-btn" onclick="startGame()">▶ Start Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game-screen" class="screen">
+  <div class="game-topbar">
+    <div class="game-title">⛏ GEM RUSH</div>
+    <div class="timer-display">Time: <span id="game-timer">5:00</span></div>
+    <div style="font-size:.8rem;color:var(--muted);font-family:'Share Tech Mono',monospace" id="topbar-code"></div>
+  </div>
+  <div class="game-layout">
+    <div class="mine-area">
+      <div class="stats-row">
+        <div class="stat-box"><span class="stat-val" id="stat-gems">0</span><span class="stat-lbl">💎 Gems</span></div>
+        <div class="stat-box"><span class="stat-val" id="stat-profit">$0</span><span class="stat-lbl">💰 Profit</span></div>
+        <div class="stat-box"><span class="stat-val" id="stat-clicks">0</span><span class="stat-lbl">⚒ Clicks</span></div>
+      </div>
+      <div class="mine-btn-wrap">
+        <button class="mine-button" id="mine-btn" onclick="doMine(event)">
+          <span class="pick-icon">⛏</span>
+        </button>
+        <div class="mine-label">Click to Mine</div>
+        <div class="mine-power" id="mine-power-display">+1 gem / click</div>
+      </div>
+      <div style="width:100%;max-width:480px;">
+        <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;">Gem Inventory</div>
+        <div id="gem-inventory" style="display:flex;flex-wrap:wrap;gap:.5rem;"></div>
+      </div>
+    </div>
+    <div class="upgrade-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab active" onclick="switchTab('upgrades',this)">Upgrades</div>
+        <div class="panel-tab" onclick="switchTab('players',this)">Players</div>
+        <div class="panel-tab" onclick="switchTab('achievements',this)">Badges</div>
+      </div>
+      <div class="panel-content" id="panel-upgrades"></div>
+      <div class="panel-content" id="panel-players" style="display:none"></div>
+      <div class="panel-content" id="panel-achievements" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- END -->
+<div id="end-screen" class="screen">
+  <div class="end-card">
+    <div style="font-size:3rem">🏆</div>
+    <h2>Game Over!</h2>
+    <div class="winner-name" id="winner-display"></div>
+    <div class="leaderboard" id="final-leaderboard"></div>
+    <button class="btn btn-gold" onclick="goTitle()">⛏ Play Again</button>
+  </div>
+</div>
+
+<script>
+// ─── Constants (mirrors server) ────────────────────────────────────────────────
+const GEM_TYPES = [
+  {name:'Coal',      emoji:'🪨',value:1,   color:'#888',    rarity:.45 },
+  {name:'Quartz',    emoji:'🔷',value:3,   color:'#88aaff', rarity:.25 },
+  {name:'Ruby',      emoji:'🔴',value:8,   color:'#e84040', rarity:.15 },
+  {name:'Emerald',   emoji:'💚',value:18,  color:'#30d97a', rarity:.09 },
+  {name:'Sapphire',  emoji:'💎',value:40,  color:'#4090f5', rarity:.04 },
+  {name:'Diamond',   emoji:'🤍',value:100, color:'#a0e8ff', rarity:.015},
+  {name:'Moonstone', emoji:'🌙',value:300, color:'#c0b0ff', rarity:.004},
+  {name:'Void Gem',  emoji:'🔮',value:1000,color:'#8040f0', rarity:.001},
+];
+const UPGRADES = [
+  {id:'pickaxe', name:'Iron Pickaxe',   emoji:'⛏',  baseCost:50,   costMult:2.2,maxLevel:5,desc:'Swing harder. +1 gem/click per level.'},
+  {id:'gloves',  name:'Miner Gloves',   emoji:'🧤', baseCost:120,  costMult:2.5,maxLevel:4,desc:'Better grip. +0.5 gem/click per level.'},
+  {id:'helmet',  name:'Miner Helmet',   emoji:'⛑',  baseCost:200,  costMult:3.0,maxLevel:3,desc:'Reveals rare veins. +15% rare gem chance.'},
+  {id:'drill',   name:'Power Drill',    emoji:'🔩', baseCost:800,  costMult:3.5,maxLevel:3,desc:'Industrial might. +3 gems/click per level.'},
+  {id:'cart',    name:'Mine Cart',      emoji:'🛒', baseCost:1500, costMult:4.0,maxLevel:3,desc:'Auto-mines! +1 gem every second.'},
+  {id:'lamp',    name:'Crystal Lamp',   emoji:'🔦', baseCost:500,  costMult:2.8,maxLevel:4,desc:'Illuminates gems. +20% gem value per level.'},
+  {id:'tnt',     name:'Mining Charges', emoji:'💣', baseCost:2000, costMult:5.0,maxLevel:2,desc:'Blast radius! +8 gems/click per level.'},
+  {id:'robot',   name:'Mining Robot',   emoji:'🤖', baseCost:5000, costMult:6.0,maxLevel:2,desc:'Robotic assistant. +5 gems/sec auto-mine.'},
+  {id:'radar',   name:'Gem Radar',      emoji:'📡', baseCost:3000, costMult:4.5,maxLevel:3,desc:'Tracks veins. +25% rare gem find rate.'},
+  {id:'vault',   name:'Gold Vault',     emoji:'🏦', baseCost:4000, costMult:5.5,maxLevel:2,desc:'Secure profits. +30% gem sell value.'},
+];
+const ACHIEVEMENTS = [
+  {id:'first_click', name:'First Strike',     emoji:'⚒',  desc:'Make your first click.'},
+  {id:'clicks_50',   name:'Getting Warmed Up',emoji:'🔥', desc:'Click 50 times.'},
+  {id:'clicks_500',  name:'Mining Addict',    emoji:'💪', desc:'Click 500 times.'},
+  {id:'gems_100',    name:'Novice Miner',     emoji:'🪨', desc:'Mine 100 total gems.'},
+  {id:'gems_1000',   name:'Gem Hunter',       emoji:'💚', desc:'Mine 1,000 total gems.'},
+  {id:'gems_10000',  name:'Gem Mogul',        emoji:'💎', desc:'Mine 10,000 total gems.'},
+  {id:'profit_1000', name:'Side Hustle',      emoji:'💵', desc:'Earn $1,000 profit.'},
+  {id:'profit_50000',name:'Gem Tycoon',       emoji:'💰', desc:'Earn $50,000 profit.'},
+  {id:'diamond',     name:'Diamond Find',     emoji:'🤍', desc:'Find a Diamond.'},
+  {id:'void',        name:'Beyond Darkness',  emoji:'🔮', desc:'Find a Void Gem.'},
+  {id:'moonstone',   name:'Lunar Touch',      emoji:'🌙', desc:'Find a Moonstone.'},
+  {id:'upgrade1',    name:'Tool Time',        emoji:'🔧', desc:'Buy your first upgrade.'},
+  {id:'upgrade5',    name:'Workshop Ready',   emoji:'🔩', desc:'Buy 5 upgrades.'},
+  {id:'auto_mine',   name:'Automation!',      emoji:'🤖', desc:'Unlock auto-mining.'},
+];
+
+// ─── State ─────────────────────────────────────────────────────────────────────
+let socket;
+let mySocketId = null;
+let isHost = false;
+let lobbyCode = null;
+let selfState = null;       // my player stats (authoritative from server)
+let allPlayers = [];        // snapshot of all players for leaderboard
+let timeLeft = 300;
+let currentTab = 'upgrades';
+
+// ─── Socket setup ──────────────────────────────────────────────────────────────
+function initSocket() {
+  socket = io();
+
+  socket.on('connect', () => {
+    mySocketId = socket.id;
+    setBadge('connected', '● Online');
+    document.getElementById('btn-create').disabled = false;
+    document.getElementById('btn-join').disabled = false;
+  });
+
+  socket.on('disconnect', () => {
+    setBadge('disconnected', '● Offline');
+    document.getElementById('btn-create').disabled = true;
+    document.getElementById('btn-join').disabled = true;
+  });
+
+  socket.on('connect_error', () => setBadge('connecting', 'Connecting...'));
+
+  // Lobby state broadcast
+  socket.on('lobby:state', (data) => {
+    renderLobbySlots(data.players);
+    // Show/hide start button based on host
+    document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+    if (!isHost) {
+      const hint = document.createElement('p');
+    }
+  });
+
+  socket.on('lobby:newHost', ({ hostId }) => {
+    if (hostId === mySocketId) {
+      isHost = true;
+      document.getElementById('start-btn').style.display = 'block';
+      showToast('👑','You are now the host!','The previous host disconnected.');
+    }
+  });
+
+  socket.on('game:started', () => {
+    showScreen('game-screen');
+    document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
+    renderUpgrades();
+    renderAchievements();
+  });
+
+  socket.on('game:state', ({ players, timeLeft: tl }) => {
+    timeLeft = tl;
+    allPlayers = players;
+    updateTimer();
+    if (currentTab === 'players') renderPlayers();
+  });
+
+  socket.on('player:self', (state) => {
+    selfState = state;
+    updateStats();
+    if (currentTab === 'upgrades') renderUpgrades();
+    if (currentTab === 'achievements') renderAchievements();
+  });
+
+  socket.on('achievements:unlocked', (list) => {
+    list.forEach(a => showToast(a.emoji, 'Achievement Unlocked!', a.name));
+    if (selfState) selfState.achievementsUnlocked = selfState.achievementsUnlocked || [];
+    list.forEach(a => { if (!selfState.achievementsUnlocked.includes(a.id)) selfState.achievementsUnlocked.push(a.id); });
+    if (currentTab === 'achievements') renderAchievements();
+  });
+
+  socket.on('game:ended', ({ results }) => {
+    showEndScreen(results);
+  });
+}
+
+function setBadge(cls, text) {
+  const b = document.getElementById('conn-badge');
+  b.className = 'conn-badge ' + cls;
+  b.textContent = text;
+}
+
+// ─── Lobby ─────────────────────────────────────────────────────────────────────
+function getPlayerName() {
+  return document.getElementById('player-name').value.trim() || 'Miner_' + Math.floor(Math.random()*9999);
+}
+
+function createLobby() {
+  socket.emit('lobby:create', { playerName: getPlayerName() }, (res) => {
+    if (!res.ok) { showToast('❌','Error', res.error); return; }
+    lobbyCode = res.code;
+    isHost = true;
+    selfState = res.self;
+    document.getElementById('lobby-code-display').textContent = lobbyCode;
+    document.getElementById('start-btn').style.display = 'block';
+    showScreen('lobby-screen');
+  });
+}
+
+function joinLobby() {
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  const err = document.getElementById('join-error');
+  if (!code) { err.style.display='block'; err.textContent='Enter a code!'; return; }
+  socket.emit('lobby:join', { playerName: getPlayerName(), code }, (res) => {
+    if (!res.ok) { err.style.display='block'; err.textContent=res.error; return; }
+    err.style.display = 'none';
+    lobbyCode = res.code;
+    isHost = false;
+    selfState = res.self;
+    document.getElementById('lobby-code-display').textContent = lobbyCode;
+    document.getElementById('start-btn').style.display = 'none';
+    showScreen('lobby-screen');
+  });
+}
+
+function startGame() {
+  socket.emit('game:start', {}, (res) => {
+    if (res && !res.ok) showToast('❌','Error', res.error);
+  });
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(lobbyCode).then(() => showToast('📋','Copied!','Share this code with friends: ' + lobbyCode));
+}
+
+function renderLobbySlots(players) {
+  const container = document.getElementById('lobby-slots');
+  container.innerHTML = '';
+  const AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
+  const COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
+  for (let i = 0; i < 4; i++) {
+    const p = players[i];
+    const isYou = p && p.socketId === mySocketId;
+    const div = document.createElement('div');
+    div.className = 'player-slot ' + (p ? (isYou ? 'you filled' : 'filled') : '');
+    if (p) {
+      div.innerHTML = `<div class="slot-icon" style="background:${p.color}22;color:${p.color}">${p.avatar}</div>
+        <div><div class="slot-name">${p.name}${isYou?'<span class="you-badge">YOU</span>':''}</div>
+        <div class="slot-sub">READY</div></div>`;
+    } else {
+      div.innerHTML = `<div class="slot-icon" style="background:var(--border);color:var(--muted)">+</div><div style="color:var(--muted);font-size:.9rem">Empty Slot</div>`;
+    }
+    container.appendChild(div);
+  }
+}
+
+// ─── Mining ────────────────────────────────────────────────────────────────────
+function doMine(e) {
+  const btn = document.getElementById('mine-btn');
+  btn.classList.add('clicking');
+  setTimeout(() => btn.classList.remove('clicking'), 100);
+
+  socket.emit('game:mine', {}, (res) => {
+    if (!res || !res.ok) return;
+    selfState = res.self;
+    updateStats();
+    spawnClickParticle(e, `+${res.gemsAdded}`);
+    res.drops?.forEach(d => spawnGemParticle(e, d.emoji));
+    if (currentTab === 'upgrades') renderUpgrades();
+  });
+}
+
+function spawnClickParticle(e, text) {
+  const el = document.createElement('div');
+  el.className = 'particle';
+  el.textContent = text;
+  el.style.cssText = `left:${e.clientX-10}px;top:${e.clientY-10}px;color:var(--gold)`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+function spawnGemParticle(e, emoji) {
+  const el = document.createElement('div');
+  el.className = 'gem-drop';
+  el.textContent = emoji;
+  el.style.cssText = `left:${e.clientX-10+(Math.random()-.5)*40}px;top:${e.clientY-20}px`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+// ─── Upgrades ──────────────────────────────────────────────────────────────────
+function getUpgradeCost(u) {
+  const lvl = selfState?.upgradeLevels?.[u.id] || 0;
+  return Math.floor(u.baseCost * Math.pow(u.costMult, lvl));
+}
+
+function renderUpgrades() {
+  const container = document.getElementById('panel-upgrades');
+  container.innerHTML = '';
+  UPGRADES.forEach(u => {
+    const lvl = selfState?.upgradeLevels?.[u.id] || 0;
+    const maxed = lvl >= u.maxLevel;
+    const cost = maxed ? 0 : getUpgradeCost(u);
+    const canAfford = !maxed && (selfState?.profit || 0) >= cost;
+    const card = document.createElement('div');
+    card.className = 'upgrade-card ' + (maxed ? 'maxed' : canAfford ? 'can-afford' : 'cant-afford');
+    card.innerHTML = `<div class="upg-header"><div class="upg-name">${u.emoji} ${u.name}</div><div class="upg-level">${lvl}/${u.maxLevel}</div></div>
+      <div class="upg-desc">${u.desc}</div>
+      <div class="upg-footer"><div class="upg-cost">${maxed?'✅ MAXED':'$'+cost.toLocaleString()}</div>
+      <div class="upg-effect">${maxed?'Max level':canAfford?'Click to buy':'Need more $'}</div></div>`;
+    if (!maxed && canAfford) card.onclick = () => buyUpgrade(u.id);
+    container.appendChild(card);
+  });
+}
+
+function buyUpgrade(upgradeId) {
+  socket.emit('game:upgrade', { upgradeId }, (res) => {
+    if (!res.ok) { showToast('❌','Cannot buy', res.error); return; }
+    selfState = res.self;
+    const u = UPGRADES.find(x => x.id === upgradeId);
+    showToast(u.emoji, 'Upgraded!', `${u.name} is now level ${selfState.upgradeLevels[upgradeId]}`);
+    updateStats();
+    renderUpgrades();
+  });
+}
+
+// ─── Stats & UI ────────────────────────────────────────────────────────────────
+function updateStats() {
+  if (!selfState) return;
+  document.getElementById('stat-gems').textContent   = selfState.totalGems.toLocaleString();
+  document.getElementById('stat-profit').textContent = '$' + selfState.profit.toLocaleString();
+  document.getElementById('stat-clicks').textContent = selfState.totalClicks.toLocaleString();
+  const gpc = (selfState.gemsPerClick||1).toFixed(1);
+  const auto = selfState.autoMine > 0 ? ` + ${selfState.autoMine}/s` : '';
+  document.getElementById('mine-power-display').textContent = `+${gpc} gem/click${auto}`;
+  renderInventory();
+}
+
+function renderInventory() {
+  if (!selfState?.inventory) return;
+  const container = document.getElementById('gem-inventory');
+  container.innerHTML = '';
+  GEM_TYPES.forEach(g => {
+    const count = selfState.inventory[g.name] || 0;
+    if (!count) return;
+    const chip = document.createElement('div');
+    chip.style.cssText = `background:${g.color}22;border:1px solid ${g.color}55;border-radius:6px;padding:.3rem .6rem;font-size:.8rem;font-family:'Share Tech Mono',monospace;display:flex;align-items:center;gap:.3rem;`;
+    chip.innerHTML = `${g.emoji} <span style="color:${g.color}">${count}</span>`;
+    chip.title = `${g.name} — $${g.value} each`;
+    container.appendChild(chip);
+  });
+}
+
+function updateTimer() {
+  const m = Math.floor(timeLeft / 60);
+  const s = timeLeft % 60;
+  const el = document.getElementById('game-timer');
+  el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  el.style.color = timeLeft <= 30 ? 'var(--ruby)' : timeLeft <= 60 ? 'var(--gold2)' : 'var(--gold)';
+}
+
+function renderPlayers() {
+  const container = document.getElementById('panel-players');
+  container.innerHTML = '';
+  const sorted = [...allPlayers].sort((a,b) => b.profit - a.profit);
+  const maxProfit = sorted[0]?.profit || 1;
+  sorted.forEach((p, rank) => {
+    const isYou = p.socketId === mySocketId;
+    const div = document.createElement('div');
+    div.className = 'player-row ' + (isYou ? 'you-row' : '');
+    const barW = Math.max(2, Math.round((p.profit / maxProfit) * 100));
+    div.innerHTML = `<div class="pr-top">
+      <div class="pr-avatar">${p.avatar}</div>
+      <div class="pr-name" style="color:${p.color}">${p.name}${isYou?' <span style="font-size:.65rem;background:var(--gold);color:#1a1200;padding:.1rem .3rem;border-radius:2px;font-family:Share Tech Mono,monospace">YOU</span>':''}</div>
+      <div class="pr-gems">$${p.profit.toLocaleString()}</div></div>
+      <div class="pr-bar-wrap"><div class="pr-bar" style="width:${barW}%;background:${p.color}"></div></div>
+      <div class="pr-stats-row">
+        <div class="pr-stat">⛏ ${p.totalGems.toLocaleString()}</div>
+        <div class="pr-stat">🖱 ${p.totalClicks.toLocaleString()}</div>
+        ${p.autoMine>0?`<div class="pr-stat">🤖 ${p.autoMine}/s</div>`:''}
+        <div class="pr-stat">🏅 #${rank+1}</div>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function renderAchievements() {
+  const container = document.getElementById('panel-achievements');
+  container.innerHTML = '';
+  const unlocked = selfState?.achievementsUnlocked || [];
+  ACHIEVEMENTS.forEach(a => {
+    const done = unlocked.includes(a.id);
+    const div = document.createElement('div');
+    div.className = 'ach-card ' + (done ? 'unlocked' : '');
+    div.innerHTML = `<div class="ach-icon">${a.emoji}</div>
+      <div><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div></div>
+      <div class="ach-status">${done ? '✓ EARNED' : '🔒'}</div>`;
+    container.appendChild(div);
+  });
+}
+
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-upgrades').style.display    = tab==='upgrades'     ? 'block':'none';
+  document.getElementById('panel-players').style.display     = tab==='players'      ? 'block':'none';
+  document.getElementById('panel-achievements').style.display = tab==='achievements' ? 'block':'none';
+  if (tab==='players') renderPlayers();
+  if (tab==='achievements') renderAchievements();
+  if (tab==='upgrades') renderUpgrades();
+}
+
+// ─── End screen ────────────────────────────────────────────────────────────────
+function showEndScreen(results) {
+  const medals = ['🥇','🥈','🥉','4️⃣'];
+  const winner = results[0];
+  const isYouWinner = winner && allPlayers.find(p => p.socketId === mySocketId)?.name === winner.name;
+  document.getElementById('winner-display').textContent = isYouWinner ? '🏆 You Win!' : `${winner.avatar} ${winner.name} Wins!`;
+  const lb = document.getElementById('final-leaderboard');
+  lb.innerHTML = '';
+  results.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'lb-row ' + (i===0?'first':'');
+    div.innerHTML = `<div class="lb-rank">${medals[i]||i+1}</div><div class="lb-name">${p.avatar} ${p.name}</div><div class="lb-gems">$${p.profit.toLocaleString()}</div>`;
+    lb.appendChild(div);
+  });
+  showScreen('end-screen');
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goTitle() {
+  lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+  showScreen('title-screen');
+}
+
+function showToast(icon, title, msg) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-text"><div class="toast-title">${title}</div>${msg}</div>`;
+  c.appendChild(t);
+  setTimeout(() => t.style.opacity='0', 2800);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ─── Boot ──────────────────────────────────────────────────────────────────────
+initSocket();
+</script>
+</body>
+</html>

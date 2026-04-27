@@ -1,0 +1,355 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── Game Constants ───────────────────────────────────────────────────────────
+const GAME_DURATION = 300; // 5 minutes in seconds
+const MAX_PLAYERS   = 4;
+
+const GEM_TYPES = [
+  { name: 'Coal',      emoji: '🪨', value: 1,    rarity: 0.45  },
+  { name: 'Quartz',    emoji: '🔷', value: 3,    rarity: 0.25  },
+  { name: 'Ruby',      emoji: '🔴', value: 8,    rarity: 0.15  },
+  { name: 'Emerald',   emoji: '💚', value: 18,   rarity: 0.09  },
+  { name: 'Sapphire',  emoji: '💎', value: 40,   rarity: 0.04  },
+  { name: 'Diamond',   emoji: '🤍', value: 100,  rarity: 0.015 },
+  { name: 'Moonstone', emoji: '🌙', value: 300,  rarity: 0.004 },
+  { name: 'Void Gem',  emoji: '🔮', value: 1000, rarity: 0.001 },
+];
+
+const UPGRADES = [
+  { id: 'pickaxe',  name: 'Iron Pickaxe',   emoji: '⛏',  baseCost: 50,   costMult: 2.2, maxLevel: 5, type: 'gemsPerClick',     amount: 1    },
+  { id: 'gloves',   name: 'Miner Gloves',   emoji: '🧤', baseCost: 120,  costMult: 2.5, maxLevel: 4, type: 'gemsPerClick',     amount: 0.5  },
+  { id: 'helmet',   name: 'Miner Helmet',   emoji: '⛑',  baseCost: 200,  costMult: 3.0, maxLevel: 3, type: 'rarityBonus',      amount: 0.15 },
+  { id: 'drill',    name: 'Power Drill',    emoji: '🔩', baseCost: 800,  costMult: 3.5, maxLevel: 3, type: 'gemsPerClick',     amount: 3    },
+  { id: 'cart',     name: 'Mine Cart',      emoji: '🛒', baseCost: 1500, costMult: 4.0, maxLevel: 3, type: 'autoMine',         amount: 1    },
+  { id: 'lamp',     name: 'Crystal Lamp',   emoji: '🔦', baseCost: 500,  costMult: 2.8, maxLevel: 4, type: 'valueMultiplier',  amount: 0.20 },
+  { id: 'tnt',      name: 'Mining Charges', emoji: '💣', baseCost: 2000, costMult: 5.0, maxLevel: 2, type: 'gemsPerClick',     amount: 8    },
+  { id: 'robot',    name: 'Mining Robot',   emoji: '🤖', baseCost: 5000, costMult: 6.0, maxLevel: 2, type: 'autoMine',         amount: 5    },
+  { id: 'radar',    name: 'Gem Radar',      emoji: '📡', baseCost: 3000, costMult: 4.5, maxLevel: 3, type: 'rarityBonus',      amount: 0.25 },
+  { id: 'vault',    name: 'Gold Vault',     emoji: '🏦', baseCost: 4000, costMult: 5.5, maxLevel: 2, type: 'valueMultiplier',  amount: 0.30 },
+];
+
+const ACHIEVEMENTS = [
+  { id: 'first_click',  name: 'First Strike',     emoji: '⚒',  check: s => s.totalClicks >= 1       },
+  { id: 'clicks_50',    name: 'Getting Warmed Up', emoji: '🔥', check: s => s.totalClicks >= 50      },
+  { id: 'clicks_500',   name: 'Mining Addict',     emoji: '💪', check: s => s.totalClicks >= 500     },
+  { id: 'gems_100',     name: 'Novice Miner',      emoji: '🪨', check: s => s.totalGems >= 100       },
+  { id: 'gems_1000',    name: 'Gem Hunter',        emoji: '💚', check: s => s.totalGems >= 1000      },
+  { id: 'gems_10000',   name: 'Gem Mogul',         emoji: '💎', check: s => s.totalGems >= 10000     },
+  { id: 'profit_1000',  name: 'Side Hustle',       emoji: '💵', check: s => s.profit >= 1000         },
+  { id: 'profit_50000', name: 'Gem Tycoon',        emoji: '💰', check: s => s.profit >= 50000        },
+  { id: 'diamond',      name: 'Diamond Find',      emoji: '🤍', check: s => (s.inventory['Diamond']  || 0) >= 1 },
+  { id: 'void',         name: 'Beyond Darkness',   emoji: '🔮', check: s => (s.inventory['Void Gem'] || 0) >= 1 },
+  { id: 'moonstone',    name: 'Lunar Touch',       emoji: '🌙', check: s => (s.inventory['Moonstone']|| 0) >= 1 },
+  { id: 'upgrade1',     name: 'Tool Time',         emoji: '🔧', check: s => s.upgradesBought >= 1    },
+  { id: 'upgrade5',     name: 'Workshop Ready',    emoji: '🔩', check: s => s.upgradesBought >= 5    },
+  { id: 'auto_mine',    name: 'Automation!',       emoji: '🤖', check: s => s.autoMine >= 1          },
+];
+
+const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
+const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
+
+// ─── In-memory store ──────────────────────────────────────────────────────────
+// lobbies: Map<code, lobbyObj>
+const lobbies = new Map();
+
+function generateCode() {
+  const words = ['GOLD','IRON','COAL','RUBY','JADE','OPAL','ONYX','GEMS'];
+  return words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(1000 + Math.random() * 9000);
+}
+
+function createPlayerState(name, avatarIndex, colorIndex) {
+  return {
+    name,
+    avatar: PLAYER_AVATARS[avatarIndex % PLAYER_AVATARS.length],
+    color:  PLAYER_COLORS[colorIndex  % PLAYER_COLORS.length],
+    totalGems: 0,
+    profit: 0,
+    totalClicks: 0,
+    gemsPerClick: 1,
+    autoMine: 0,
+    valueMultiplier: 1,
+    rarityBonus: 0,
+    upgradesBought: 0,
+    inventory: {},
+    achievementsUnlocked: [],
+    upgradeLevels: {},
+  };
+}
+
+function rollGem(player) {
+  const bonus = player.rarityBonus || 0;
+  const r = Math.random() * (1 - bonus * 0.5);
+  let cumulative = 0;
+  for (const gem of GEM_TYPES) {
+    cumulative += gem.rarity;
+    if (r <= cumulative) return gem;
+  }
+  return GEM_TYPES[0];
+}
+
+function upgradeCost(upgradeId, level) {
+  const u = UPGRADES.find(x => x.id === upgradeId);
+  if (!u) return Infinity;
+  return Math.floor(u.baseCost * Math.pow(u.costMult, level));
+}
+
+function applyUpgrade(player, upgradeId) {
+  const u = UPGRADES.find(x => x.id === upgradeId);
+  if (!u) return;
+  switch (u.type) {
+    case 'gemsPerClick':    player.gemsPerClick    += u.amount; break;
+    case 'autoMine':        player.autoMine        += u.amount; break;
+    case 'rarityBonus':     player.rarityBonus     += u.amount; break;
+    case 'valueMultiplier': player.valueMultiplier += u.amount; break;
+  }
+}
+
+function checkAchievements(player) {
+  const newlyUnlocked = [];
+  for (const a of ACHIEVEMENTS) {
+    if (!player.achievementsUnlocked.includes(a.id) && a.check(player)) {
+      player.achievementsUnlocked.push(a.id);
+      newlyUnlocked.push({ id: a.id, name: a.name, emoji: a.emoji });
+    }
+  }
+  return newlyUnlocked;
+}
+
+function broadcastLobbyState(lobby) {
+  const players = Object.values(lobby.players);
+  io.to(lobby.code).emit('lobby:state', {
+    code: lobby.code,
+    status: lobby.status,
+    players: players.map(p => ({
+      socketId: p.socketId,
+      name: p.state.name,
+      avatar: p.state.avatar,
+      color: p.state.color,
+    })),
+  });
+}
+
+function broadcastGameState(lobby) {
+  const snapshot = Object.entries(lobby.players).map(([sid, p]) => ({
+    socketId: sid,
+    name: p.state.name,
+    avatar: p.state.avatar,
+    color: p.state.color,
+    totalGems: p.state.totalGems,
+    profit: p.state.profit,
+    totalClicks: p.state.totalClicks,
+    autoMine: p.state.autoMine,
+    upgradesBought: p.state.upgradesBought,
+    achievementsUnlocked: p.state.achievementsUnlocked,
+  }));
+  io.to(lobby.code).emit('game:state', { players: snapshot, timeLeft: lobby.timeLeft });
+}
+
+function startGameTimer(lobby) {
+  lobby.timer = setInterval(() => {
+    lobby.timeLeft--;
+    broadcastGameState(lobby);
+    // Auto-mine tick for all players
+    for (const [sid, p] of Object.entries(lobby.players)) {
+      if (p.state.autoMine > 0) {
+        for (let i = 0; i < p.state.autoMine; i++) {
+          const gem = rollGem(p.state);
+          p.state.inventory[gem.name] = (p.state.inventory[gem.name] || 0) + 1;
+          p.state.totalGems++;
+          p.state.profit += Math.floor(gem.value * p.state.valueMultiplier);
+        }
+        const newAch = checkAchievements(p.state);
+        if (newAch.length) {
+          io.to(sid).emit('achievements:unlocked', newAch);
+        }
+        io.to(sid).emit('player:self', playerSelfPayload(p.state));
+      }
+    }
+    if (lobby.timeLeft <= 0) endGame(lobby);
+  }, 1000);
+}
+
+function playerSelfPayload(state) {
+  return {
+    totalGems: state.totalGems,
+    profit: state.profit,
+    totalClicks: state.totalClicks,
+    gemsPerClick: state.gemsPerClick,
+    autoMine: state.autoMine,
+    valueMultiplier: state.valueMultiplier,
+    rarityBonus: state.rarityBonus,
+    upgradesBought: state.upgradesBought,
+    inventory: state.inventory,
+    achievementsUnlocked: state.achievementsUnlocked,
+    upgradeLevels: state.upgradeLevels,
+  };
+}
+
+function endGame(lobby) {
+  clearInterval(lobby.timer);
+  lobby.status = 'ended';
+  const results = Object.values(lobby.players)
+    .map(p => ({
+      name: p.state.name,
+      avatar: p.state.avatar,
+      color: p.state.color,
+      profit: p.state.profit,
+      totalGems: p.state.totalGems,
+    }))
+    .sort((a, b) => b.profit - a.profit);
+  io.to(lobby.code).emit('game:ended', { results });
+  // Clean up lobby after 2 minutes
+  setTimeout(() => lobbies.delete(lobby.code), 120_000);
+}
+
+// ─── Socket.io events ─────────────────────────────────────────────────────────
+io.on('connection', (socket) => {
+  console.log(`[+] Connected: ${socket.id}`);
+
+  // ── Create lobby ──
+  socket.on('lobby:create', ({ playerName }, callback) => {
+    let code;
+    do { code = generateCode(); } while (lobbies.has(code));
+
+    const lobby = {
+      code,
+      status: 'waiting', // waiting | playing | ended
+      hostId: socket.id,
+      players: {},
+      timeLeft: GAME_DURATION,
+      timer: null,
+    };
+
+    const state = createPlayerState(playerName || 'Miner', 0, 0);
+    lobby.players[socket.id] = { socketId: socket.id, state };
+    lobbies.set(code, lobby);
+    socket.join(code);
+    socket.data.lobbyCode = code;
+
+    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state) });
+    broadcastLobbyState(lobby);
+  });
+
+  // ── Join lobby ──
+  socket.on('lobby:join', ({ playerName, code }, callback) => {
+    const lobby = lobbies.get(code.toUpperCase());
+    if (!lobby) return callback({ ok: false, error: 'Lobby not found.' });
+    if (lobby.status !== 'waiting') return callback({ ok: false, error: 'Game already started.' });
+    const count = Object.keys(lobby.players).length;
+    if (count >= MAX_PLAYERS) return callback({ ok: false, error: 'Lobby is full.' });
+
+    const state = createPlayerState(playerName || 'Miner', count, count);
+    lobby.players[socket.id] = { socketId: socket.id, state };
+    socket.join(code.toUpperCase());
+    socket.data.lobbyCode = code.toUpperCase();
+
+    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state) });
+    broadcastLobbyState(lobby);
+  });
+
+  // ── Start game (host only) ──
+  socket.on('game:start', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can start.' });
+    if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Already started.' });
+
+    lobby.status = 'playing';
+    io.to(lobby.code).emit('game:started');
+    startGameTimer(lobby);
+    callback?.({ ok: true });
+  });
+
+  // ── Mine click ──
+  socket.on('game:mine', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'playing') return;
+    const p = lobby.players[socket.id];
+    if (!p) return;
+
+    const count = Math.ceil(p.state.gemsPerClick);
+    const drops = [];
+    for (let i = 0; i < count; i++) {
+      const gem = rollGem(p.state);
+      p.state.inventory[gem.name] = (p.state.inventory[gem.name] || 0) + 1;
+      p.state.totalGems++;
+      p.state.profit += Math.floor(gem.value * p.state.valueMultiplier);
+      if (gem.value >= 18) drops.push({ emoji: gem.emoji, name: gem.name });
+    }
+    p.state.totalClicks++;
+
+    const newAch = checkAchievements(p.state);
+    if (newAch.length) socket.emit('achievements:unlocked', newAch);
+
+    callback?.({ ok: true, gemsAdded: count, drops, self: playerSelfPayload(p.state) });
+  });
+
+  // ── Buy upgrade ──
+  socket.on('game:upgrade', ({ upgradeId }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'playing') return callback?.({ ok: false });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+
+    const u = UPGRADES.find(x => x.id === upgradeId);
+    if (!u) return callback?.({ ok: false, error: 'Unknown upgrade.' });
+
+    const currentLevel = p.state.upgradeLevels[upgradeId] || 0;
+    if (currentLevel >= u.maxLevel) return callback?.({ ok: false, error: 'Already maxed.' });
+
+    const cost = upgradeCost(upgradeId, currentLevel);
+    if (p.state.profit < cost) return callback?.({ ok: false, error: 'Not enough profit.' });
+
+    p.state.profit -= cost;
+    p.state.upgradeLevels[upgradeId] = currentLevel + 1;
+    applyUpgrade(p.state, upgradeId);
+    p.state.upgradesBought++;
+
+    const newAch = checkAchievements(p.state);
+    if (newAch.length) socket.emit('achievements:unlocked', newAch);
+
+    callback?.({ ok: true, self: playerSelfPayload(p.state) });
+  });
+
+  // ── Disconnect ──
+  socket.on('disconnect', () => {
+    console.log(`[-] Disconnected: ${socket.id}`);
+    const code = socket.data.lobbyCode;
+    if (!code) return;
+    const lobby = lobbies.get(code);
+    if (!lobby) return;
+
+    delete lobby.players[socket.id];
+    const remaining = Object.keys(lobby.players).length;
+
+    if (remaining === 0) {
+      clearInterval(lobby.timer);
+      lobbies.delete(code);
+    } else {
+      // Pass host if host left
+      if (lobby.hostId === socket.id) {
+        lobby.hostId = Object.keys(lobby.players)[0];
+        io.to(lobby.code).emit('lobby:newHost', { hostId: lobby.hostId });
+      }
+      if (lobby.status === 'waiting') broadcastLobbyState(lobby);
+    }
+  });
+});
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`GEM RUSH server running on port ${PORT}`));
