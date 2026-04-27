@@ -39,6 +39,8 @@
   .btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 4px 20px rgba(245,200,66,.35);}
   .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);margin-top:.7rem;}
   .btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+  .btn-danger{background:linear-gradient(135deg,var(--ruby),#c02020);color:#fff;}
+  .btn-danger:hover{filter:brightness(1.1);transform:translateY(-1px);}
   .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
   .divider{text-align:center;color:var(--muted);font-size:.75rem;letter-spacing:.2em;margin:1.2rem 0;position:relative;}
   .divider::before,.divider::after{content:'';position:absolute;top:50%;width:calc(50% - 2rem);height:1px;background:var(--border);}
@@ -64,13 +66,17 @@
   .lobby-actions .btn{flex:1;}
   .copy-hint{font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:.8rem;cursor:pointer;}
   .copy-hint:hover{color:var(--gold);}
+  /* Name change in lobby */
+  .lobby-name-row{display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;}
+  .lobby-name-row input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.5rem .8rem;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;}
+  .lobby-name-row input:focus{border-color:var(--gold);}
+  .lobby-name-row button{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.5rem .9rem;color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.1em;cursor:pointer;white-space:nowrap;transition:all .15s;}
+  .lobby-name-row button:hover{border-color:var(--gold);}
 
   /* ── GAME ── */
   #game-screen{flex-direction:column;min-height:100vh;}
   .game-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
   .game-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:.1em;}
-  .timer-display{font-family:'Share Tech Mono',monospace;font-size:1.1rem;color:var(--text);background:var(--surface2);padding:.3rem 1rem;border-radius:6px;border:1px solid var(--border);}
-  .timer-display span{color:var(--gold);}
   .game-layout{display:grid;grid-template-columns:1fr 320px;flex:1;overflow:hidden;}
   .mine-area{padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1.2rem;overflow-y:auto;}
   .stats-row{display:flex;gap:1rem;width:100%;max-width:480px;}
@@ -90,6 +96,22 @@
   @keyframes particleUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(.6)}}
   .gem-drop{position:fixed;pointer-events:none;font-size:1.5rem;z-index:999;animation:gemDrop .9s ease-out forwards;}
   @keyframes gemDrop{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-80px) scale(.4)}}
+
+  /* ── INVENTORY / SELL ── */
+  .inventory-section{width:100%;max-width:480px;}
+  .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;}
+  .inv-title{font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);}
+  .inv-sell-all-btn{font-family:'Bebas Neue',sans-serif;font-size:.85rem;letter-spacing:.1em;background:linear-gradient(135deg,var(--emerald),#22a060);color:#001a0a;border:none;border-radius:6px;padding:.25rem .8rem;cursor:pointer;transition:all .15s;}
+  .inv-sell-all-btn:hover{filter:brightness(1.1);}
+  .inv-sell-all-btn:disabled{opacity:.4;cursor:not-allowed;}
+  #gem-inventory{display:flex;flex-wrap:wrap;gap:.5rem;}
+  .gem-chip{border-radius:8px;padding:.35rem .7rem;font-size:.8rem;font-family:'Share Tech Mono',monospace;display:flex;align-items:center;gap:.4rem;cursor:pointer;transition:all .12s;position:relative;border:1px solid;}
+  .gem-chip:hover{transform:scale(1.05);}
+  .gem-chip .chip-sell{font-size:.65rem;opacity:.7;letter-spacing:.05em;}
+  .inv-empty{font-size:.8rem;color:var(--muted);font-style:italic;}
+  /* Sell value preview */
+  .inv-value-row{font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--muted);margin-top:.4rem;}
+  .inv-value-row span{color:var(--emerald);}
 
   /* ── PANEL ── */
   .upgrade-panel{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
@@ -164,6 +186,11 @@
   .lb-row.first .lb-rank{color:var(--gold);}
   .lb-name{flex:1;font-weight:700;text-align:left;}
   .lb-gems{font-family:'Share Tech Mono',monospace;color:var(--gold);}
+  .lb-sub{font-size:.7rem;color:var(--muted);font-family:'Share Tech Mono',monospace;}
+
+  /* End game button in topbar */
+  .topbar-end-btn{font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.1em;background:linear-gradient(135deg,var(--ruby),#c02020);color:#fff;border:none;border-radius:6px;padding:.3rem .9rem;cursor:pointer;transition:all .15s;display:none;}
+  .topbar-end-btn:hover{filter:brightness(1.15);}
 
   @media(max-width:700px){
     .game-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
@@ -212,6 +239,13 @@
       <div class="lobby-code">Code: <span id="lobby-code-display">----</span></div>
     </div>
     <p class="copy-hint" onclick="copyCode()">📋 Click to copy code and share with friends</p>
+
+    <!-- Name change row — shown for all players in lobby -->
+    <div class="lobby-name-row">
+      <input type="text" id="lobby-name-input" placeholder="Change your name..." maxlength="16">
+      <button onclick="updateLobbyName()">✏️ Set Name</button>
+    </div>
+
     <div class="player-slots" id="lobby-slots"></div>
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
       Share the code above with up to 3 friends. Only the host can start the game.
@@ -227,14 +261,14 @@
 <div id="game-screen" class="screen">
   <div class="game-topbar">
     <div class="game-title">⛏ GEM RUSH</div>
-    <div class="timer-display">Time: <span id="game-timer">5:00</span></div>
     <div style="font-size:.8rem;color:var(--muted);font-family:'Share Tech Mono',monospace" id="topbar-code"></div>
+    <button class="topbar-end-btn" id="end-game-btn" onclick="confirmEndGame()">🏁 End Game</button>
   </div>
   <div class="game-layout">
     <div class="mine-area">
       <div class="stats-row">
-        <div class="stat-box"><span class="stat-val" id="stat-gems">0</span><span class="stat-lbl">💎 Gems</span></div>
-        <div class="stat-box"><span class="stat-val" id="stat-profit">$0</span><span class="stat-lbl">💰 Profit</span></div>
+        <div class="stat-box"><span class="stat-val" id="stat-gems">0</span><span class="stat-lbl">💎 Gems Mined</span></div>
+        <div class="stat-box"><span class="stat-val" id="stat-profit">$0</span><span class="stat-lbl">💰 Cash</span></div>
         <div class="stat-box"><span class="stat-val" id="stat-clicks">0</span><span class="stat-lbl">⚒ Clicks</span></div>
       </div>
       <div class="mine-btn-wrap">
@@ -244,9 +278,17 @@
         <div class="mine-label">Click to Mine</div>
         <div class="mine-power" id="mine-power-display">+1 gem / click</div>
       </div>
-      <div style="width:100%;max-width:480px;">
-        <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;">Gem Inventory</div>
-        <div id="gem-inventory" style="display:flex;flex-wrap:wrap;gap:.5rem;"></div>
+
+      <!-- Inventory + Sell -->
+      <div class="inventory-section">
+        <div class="inv-header">
+          <div class="inv-title">💼 Gem Inventory (click to sell)</div>
+          <button class="inv-sell-all-btn" id="sell-all-btn" onclick="sellAll()" disabled>Sell All</button>
+        </div>
+        <div id="gem-inventory"></div>
+        <div class="inv-value-row" id="inv-value-row" style="display:none">
+          Inventory value: <span id="inv-total-value">$0</span>
+        </div>
       </div>
     </div>
     <div class="upgrade-panel">
@@ -304,8 +346,8 @@ const ACHIEVEMENTS = [
   {id:'gems_100',    name:'Novice Miner',     emoji:'🪨', desc:'Mine 100 total gems.'},
   {id:'gems_1000',   name:'Gem Hunter',       emoji:'💚', desc:'Mine 1,000 total gems.'},
   {id:'gems_10000',  name:'Gem Mogul',        emoji:'💎', desc:'Mine 10,000 total gems.'},
-  {id:'profit_1000', name:'Side Hustle',      emoji:'💵', desc:'Earn $1,000 profit.'},
-  {id:'profit_50000',name:'Gem Tycoon',       emoji:'💰', desc:'Earn $50,000 profit.'},
+  {id:'profit_1000', name:'Side Hustle',      emoji:'💵', desc:'Earn $1,000 in cash.'},
+  {id:'profit_50000',name:'Gem Tycoon',       emoji:'💰', desc:'Earn $50,000 in cash.'},
   {id:'diamond',     name:'Diamond Find',     emoji:'🤍', desc:'Find a Diamond.'},
   {id:'void',        name:'Beyond Darkness',  emoji:'🔮', desc:'Find a Void Gem.'},
   {id:'moonstone',   name:'Lunar Touch',      emoji:'🌙', desc:'Find a Moonstone.'},
@@ -319,9 +361,8 @@ let socket;
 let mySocketId = null;
 let isHost = false;
 let lobbyCode = null;
-let selfState = null;       // my player stats (authoritative from server)
-let allPlayers = [];        // snapshot of all players for leaderboard
-let timeLeft = 300;
+let selfState = null;
+let allPlayers = [];
 let currentTab = 'upgrades';
 
 // ─── Socket setup ──────────────────────────────────────────────────────────────
@@ -343,20 +384,16 @@ function initSocket() {
 
   socket.on('connect_error', () => setBadge('connecting', 'Connecting...'));
 
-  // Lobby state broadcast
   socket.on('lobby:state', (data) => {
     renderLobbySlots(data.players);
-    // Show/hide start button based on host
     document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
-    if (!isHost) {
-      const hint = document.createElement('p');
-    }
   });
 
   socket.on('lobby:newHost', ({ hostId }) => {
     if (hostId === mySocketId) {
       isHost = true;
       document.getElementById('start-btn').style.display = 'block';
+      document.getElementById('end-game-btn').style.display = 'block';
       showToast('👑','You are now the host!','The previous host disconnected.');
     }
   });
@@ -364,14 +401,13 @@ function initSocket() {
   socket.on('game:started', () => {
     showScreen('game-screen');
     document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
+    if (isHost) document.getElementById('end-game-btn').style.display = 'block';
     renderUpgrades();
     renderAchievements();
   });
 
-  socket.on('game:state', ({ players, timeLeft: tl }) => {
-    timeLeft = tl;
+  socket.on('game:state', ({ players }) => {
     allPlayers = players;
-    updateTimer();
     if (currentTab === 'players') renderPlayers();
   });
 
@@ -412,6 +448,7 @@ function createLobby() {
     isHost = true;
     selfState = res.self;
     document.getElementById('lobby-code-display').textContent = lobbyCode;
+    document.getElementById('lobby-name-input').value = selfState.name;
     document.getElementById('start-btn').style.display = 'block';
     showScreen('lobby-screen');
   });
@@ -428,15 +465,42 @@ function joinLobby() {
     isHost = false;
     selfState = res.self;
     document.getElementById('lobby-code-display').textContent = lobbyCode;
+    document.getElementById('lobby-name-input').value = selfState.name;
     document.getElementById('start-btn').style.display = 'none';
     showScreen('lobby-screen');
   });
 }
 
+function updateLobbyName() {
+  const newName = document.getElementById('lobby-name-input').value.trim();
+  if (!newName) return;
+  socket.emit('lobby:rename', { name: newName }, (res) => {
+    if (res && res.ok) {
+      if (selfState) selfState.name = newName;
+      showToast('✏️', 'Name Updated', 'You are now: ' + newName);
+    }
+  });
+}
+
+// Allow Enter key to set name
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('lobby-name-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') updateLobbyName();
+  });
+});
+
 function startGame() {
   socket.emit('game:start', {}, (res) => {
     if (res && !res.ok) showToast('❌','Error', res.error);
   });
+}
+
+function confirmEndGame() {
+  if (confirm('End the game for everyone? Final scores will be tallied.')) {
+    socket.emit('game:end', {}, (res) => {
+      if (res && !res.ok) showToast('❌','Error', res.error);
+    });
+  }
 }
 
 function copyCode() {
@@ -498,6 +562,41 @@ function spawnGemParticle(e, emoji) {
   setTimeout(() => el.remove(), 1000);
 }
 
+// ─── Sell ──────────────────────────────────────────────────────────────────────
+function sellGem(gemName) {
+  socket.emit('game:sell', { gemName, quantity: -1 }, (res) => {
+    if (!res || !res.ok) { showToast('❌','Cannot sell', res?.error || ''); return; }
+    selfState = res.self;
+    const gem = GEM_TYPES.find(g => g.name === gemName);
+    showToast(gem?.emoji || '💰', 'Gems Sold!', `+$${res.earned.toLocaleString()} from ${gemName}`);
+    updateStats();
+    if (currentTab === 'upgrades') renderUpgrades();
+  });
+}
+
+function sellAll() {
+  if (!selfState?.inventory) return;
+  const gemNames = Object.keys(selfState.inventory).filter(n => (selfState.inventory[n] || 0) > 0);
+  if (!gemNames.length) return;
+
+  let remaining = gemNames.length;
+  let totalEarned = 0;
+  gemNames.forEach(gemName => {
+    socket.emit('game:sell', { gemName, quantity: -1 }, (res) => {
+      if (res?.ok) {
+        selfState = res.self;
+        totalEarned += res.earned;
+      }
+      remaining--;
+      if (remaining === 0) {
+        showToast('💰','All Gems Sold!', `+$${totalEarned.toLocaleString()} total`);
+        updateStats();
+        if (currentTab === 'upgrades') renderUpgrades();
+      }
+    });
+  });
+}
+
 // ─── Upgrades ──────────────────────────────────────────────────────────────────
 function getUpgradeCost(u) {
   const lvl = selfState?.upgradeLevels?.[u.id] || 0;
@@ -517,7 +616,7 @@ function renderUpgrades() {
     card.innerHTML = `<div class="upg-header"><div class="upg-name">${u.emoji} ${u.name}</div><div class="upg-level">${lvl}/${u.maxLevel}</div></div>
       <div class="upg-desc">${u.desc}</div>
       <div class="upg-footer"><div class="upg-cost">${maxed?'✅ MAXED':'$'+cost.toLocaleString()}</div>
-      <div class="upg-effect">${maxed?'Max level':canAfford?'Click to buy':'Need more $'}</div></div>`;
+      <div class="upg-effect">${maxed?'Max level':canAfford?'Click to buy':'Sell gems first'}</div></div>`;
     if (!maxed && canAfford) card.onclick = () => buyUpgrade(u.id);
     container.appendChild(card);
   });
@@ -546,48 +645,81 @@ function updateStats() {
   renderInventory();
 }
 
+function calcInventoryValueLocal() {
+  if (!selfState?.inventory) return 0;
+  let total = 0;
+  for (const gem of GEM_TYPES) {
+    const count = selfState.inventory[gem.name] || 0;
+    const mult = selfState.valueMultiplier || 1;
+    total += count * Math.floor(gem.value * mult);
+  }
+  return total;
+}
+
 function renderInventory() {
   if (!selfState?.inventory) return;
   const container = document.getElementById('gem-inventory');
   container.innerHTML = '';
+
+  const hasGems = Object.values(selfState.inventory).some(v => v > 0);
+  const sellAllBtn = document.getElementById('sell-all-btn');
+  sellAllBtn.disabled = !hasGems;
+
+  const totalVal = calcInventoryValueLocal();
+  const valRow = document.getElementById('inv-value-row');
+  if (hasGems) {
+    valRow.style.display = 'block';
+    document.getElementById('inv-total-value').textContent = '$' + totalVal.toLocaleString();
+  } else {
+    valRow.style.display = 'none';
+  }
+
+  if (!hasGems) {
+    const empty = document.createElement('div');
+    empty.className = 'inv-empty';
+    empty.textContent = 'No gems yet — start mining!';
+    container.appendChild(empty);
+    return;
+  }
+
   GEM_TYPES.forEach(g => {
     const count = selfState.inventory[g.name] || 0;
     if (!count) return;
+    const mult = selfState.valueMultiplier || 1;
+    const perGem = Math.floor(g.value * mult);
+    const total = count * perGem;
+
     const chip = document.createElement('div');
-    chip.style.cssText = `background:${g.color}22;border:1px solid ${g.color}55;border-radius:6px;padding:.3rem .6rem;font-size:.8rem;font-family:'Share Tech Mono',monospace;display:flex;align-items:center;gap:.3rem;`;
-    chip.innerHTML = `${g.emoji} <span style="color:${g.color}">${count}</span>`;
-    chip.title = `${g.name} — $${g.value} each`;
+    chip.className = 'gem-chip';
+    chip.style.cssText = `background:${g.color}22;border-color:${g.color}55;color:${g.color};`;
+    chip.innerHTML = `${g.emoji} <strong>${count}</strong> <span class="chip-sell">· $${total.toLocaleString()}</span>`;
+    chip.title = `${g.name} — $${perGem} each — Click to sell all`;
+    chip.onclick = () => sellGem(g.name);
     container.appendChild(chip);
   });
-}
-
-function updateTimer() {
-  const m = Math.floor(timeLeft / 60);
-  const s = timeLeft % 60;
-  const el = document.getElementById('game-timer');
-  el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
-  el.style.color = timeLeft <= 30 ? 'var(--ruby)' : timeLeft <= 60 ? 'var(--gold2)' : 'var(--gold)';
 }
 
 function renderPlayers() {
   const container = document.getElementById('panel-players');
   container.innerHTML = '';
-  const sorted = [...allPlayers].sort((a,b) => b.profit - a.profit);
-  const maxProfit = sorted[0]?.profit || 1;
+  const sorted = [...allPlayers].sort((a,b) => (b.totalEarned||b.profit) - (a.totalEarned||a.profit));
+  const maxVal = sorted[0] ? ((sorted[0].totalEarned||0) + (sorted[0].unsoldValue||0)) : 1;
   sorted.forEach((p, rank) => {
     const isYou = p.socketId === mySocketId;
     const div = document.createElement('div');
     div.className = 'player-row ' + (isYou ? 'you-row' : '');
-    const barW = Math.max(2, Math.round((p.profit / maxProfit) * 100));
+    const netWorth = (p.totalEarned||p.profit||0) + (p.unsoldValue||0);
+    const barW = Math.max(2, Math.round((netWorth / maxVal) * 100));
     div.innerHTML = `<div class="pr-top">
       <div class="pr-avatar">${p.avatar}</div>
       <div class="pr-name" style="color:${p.color}">${p.name}${isYou?' <span style="font-size:.65rem;background:var(--gold);color:#1a1200;padding:.1rem .3rem;border-radius:2px;font-family:Share Tech Mono,monospace">YOU</span>':''}</div>
-      <div class="pr-gems">$${p.profit.toLocaleString()}</div></div>
+      <div class="pr-gems">$${(p.profit||0).toLocaleString()}</div></div>
       <div class="pr-bar-wrap"><div class="pr-bar" style="width:${barW}%;background:${p.color}"></div></div>
       <div class="pr-stats-row">
-        <div class="pr-stat">⛏ ${p.totalGems.toLocaleString()}</div>
-        <div class="pr-stat">🖱 ${p.totalClicks.toLocaleString()}</div>
+        <div class="pr-stat">⛏ ${(p.totalGems||0).toLocaleString()}</div>
+        <div class="pr-stat">🖱 ${(p.totalClicks||0).toLocaleString()}</div>
         ${p.autoMine>0?`<div class="pr-stat">🤖 ${p.autoMine}/s</div>`:''}
+        ${p.unsoldValue>0?`<div class="pr-stat">💼 $${p.unsoldValue.toLocaleString()} unsold</div>`:''}
         <div class="pr-stat">🏅 #${rank+1}</div>
       </div>`;
     container.appendChild(div);
@@ -625,14 +757,20 @@ function switchTab(tab, el) {
 function showEndScreen(results) {
   const medals = ['🥇','🥈','🥉','4️⃣'];
   const winner = results[0];
-  const isYouWinner = winner && allPlayers.find(p => p.socketId === mySocketId)?.name === winner.name;
+  const myName = selfState?.name || '';
+  const isYouWinner = winner && winner.name === myName;
   document.getElementById('winner-display').textContent = isYouWinner ? '🏆 You Win!' : `${winner.avatar} ${winner.name} Wins!`;
   const lb = document.getElementById('final-leaderboard');
   lb.innerHTML = '';
   results.forEach((p, i) => {
     const div = document.createElement('div');
     div.className = 'lb-row ' + (i===0?'first':'');
-    div.innerHTML = `<div class="lb-rank">${medals[i]||i+1}</div><div class="lb-name">${p.avatar} ${p.name}</div><div class="lb-gems">$${p.profit.toLocaleString()}</div>`;
+    div.innerHTML = `<div class="lb-rank">${medals[i]||i+1}</div>
+      <div class="lb-name">${p.avatar} ${p.name}</div>
+      <div>
+        <div class="lb-gems">$${(p.totalEarned||p.profit||0).toLocaleString()}</div>
+        ${(p.unsoldValue||0)>0?`<div class="lb-sub">+$${p.unsoldValue.toLocaleString()} unsold</div>`:''}
+      </div>`;
     lb.appendChild(div);
   });
   showScreen('end-screen');
