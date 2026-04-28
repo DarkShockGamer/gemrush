@@ -211,9 +211,14 @@
 
   @media(max-width:700px){
     #game-screen{height:100dvh;}
-    .game-layout{grid-template-columns:1fr;grid-template-rows:1fr 300px;height:100%;}
+    .game-layout{grid-template-columns:1fr;grid-template-rows:1fr auto;height:100%;}
     .mine-area{padding:.75rem;gap:.7rem;overflow-y:hidden;}
-    .upgrade-panel{border-left:none;border-top:1px solid var(--border);height:300px;flex-shrink:0;}
+    .upgrade-panel{border-left:none;border-top:1px solid var(--border);flex-shrink:0;transition:height .25s cubic-bezier(.4,0,.2,1);}
+    .upgrade-panel.panel-collapsed{height:42px;overflow:hidden;}
+    .upgrade-panel.panel-open{height:300px;}
+    .panel-tabs{position:relative;}
+    .panel-toggle-hint{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--muted);font-family:'Share Tech Mono',monospace;pointer-events:none;transition:opacity .2s;}
+    .upgrade-panel.panel-open .panel-toggle-hint{opacity:0;}
     .mine-button{width:140px;height:140px;}
     .mine-button .pick-icon{font-size:2.5rem;}
     .orbit-zone{width:220px;height:220px;}
@@ -313,11 +318,12 @@
         </div>
       </div>
     </div>
-    <div class="upgrade-panel">
+    <div class="upgrade-panel" id="upgrade-panel">
       <div class="panel-tabs">
         <div class="panel-tab active" onclick="switchTab('upgrades',this)">Upgrades</div>
         <div class="panel-tab" onclick="switchTab('players',this)">Players</div>
         <div class="panel-tab" onclick="switchTab('achievements',this)">Badges</div>
+        <span class="panel-toggle-hint">▲ tap to open</span>
       </div>
       <div class="panel-content" id="panel-upgrades"></div>
       <div class="panel-content" id="panel-players" style="display:none"></div>
@@ -464,6 +470,7 @@ function initSocket() {
           showScreen('game-screen');
           document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
           if (isHost) document.getElementById('end-game-btn').style.display = 'block';
+          initMobilePanel();
           updateStats();
           syncOrbitMiners();
           renderUpgrades();
@@ -502,6 +509,7 @@ function initSocket() {
     showScreen('game-screen');
     document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
     if (isHost) document.getElementById('end-game-btn').style.display = 'block';
+    initMobilePanel();
     renderUpgrades();
     renderAchievements();
   });
@@ -974,16 +982,48 @@ function renderAchievements() {
   });
 }
 
+function isMobile() { return window.innerWidth <= 700; }
+
 function switchTab(tab, el) {
+  const panel = document.getElementById('upgrade-panel');
+  const wasMobile = isMobile();
+  const wasCollapsed = wasMobile && panel.classList.contains('panel-collapsed');
+  const sameTab = currentTab === tab;
+
+  // On mobile: if panel is collapsed, always open it.
+  // If panel is open and same tab clicked, collapse it.
+  if (wasMobile) {
+    if (wasCollapsed) {
+      panel.classList.remove('panel-collapsed');
+      panel.classList.add('panel-open');
+    } else if (sameTab) {
+      panel.classList.add('panel-collapsed');
+      panel.classList.remove('panel-open');
+      return; // don't re-render, just close
+    }
+  }
+
   currentTab = tab;
   document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('panel-upgrades').style.display    = tab==='upgrades'     ? 'block':'none';
-  document.getElementById('panel-players').style.display     = tab==='players'      ? 'block':'none';
-  document.getElementById('panel-achievements').style.display = tab==='achievements' ? 'block':'none';
+  document.getElementById('panel-upgrades').style.display     = tab==='upgrades'     ? 'block':'none';
+  document.getElementById('panel-players').style.display      = tab==='players'      ? 'block':'none';
+  document.getElementById('panel-achievements').style.display  = tab==='achievements' ? 'block':'none';
   if (tab==='players') renderPlayers();
   if (tab==='achievements') renderAchievements();
   if (tab==='upgrades') renderUpgrades();
+}
+
+// Initialise mobile panel state when game starts
+function initMobilePanel() {
+  const panel = document.getElementById('upgrade-panel');
+  if (!panel) return;
+  if (isMobile()) {
+    panel.classList.add('panel-collapsed');
+    panel.classList.remove('panel-open');
+  } else {
+    panel.classList.remove('panel-collapsed','panel-open');
+  }
 }
 
 // ─── End screen ────────────────────────────────────────────────────────────────
