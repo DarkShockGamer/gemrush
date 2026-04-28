@@ -17,14 +17,14 @@ app.get('/', (req, res) => {
 const MAX_PLAYERS = 4;
 
 const GEM_TYPES = [
-  { name: 'Coal',      emoji: '🪨', value: 1,    rarity: 0.45  },
-  { name: 'Quartz',    emoji: '🔷', value: 3,    rarity: 0.25  },
-  { name: 'Ruby',      emoji: '🔴', value: 8,    rarity: 0.15  },
-  { name: 'Emerald',   emoji: '💚', value: 18,   rarity: 0.09  },
-  { name: 'Sapphire',  emoji: '💎', value: 40,   rarity: 0.04  },
-  { name: 'Diamond',   emoji: '🤍', value: 100,  rarity: 0.015 },
-  { name: 'Moonstone', emoji: '🌙', value: 300,  rarity: 0.004 },
-  { name: 'Void Gem',  emoji: '🔮', value: 1000, rarity: 0.001 },
+  { name: 'Coal',      emoji: '🪨', value: 1,    rarity: 0.25  },
+  { name: 'Quartz',    emoji: '🔷', value: 3,    rarity: 0.10  },
+  { name: 'Ruby',      emoji: '🔴', value: 8,    rarity: 0.05  },
+  { name: 'Emerald',   emoji: '💚', value: 18,   rarity: 0.01  },
+  { name: 'Sapphire',  emoji: '💎', value: 40,   rarity: 0.005  },
+  { name: 'Diamond',   emoji: '🤍', value: 100,  rarity: 0.0005 },
+  { name: 'Moonstone', emoji: '🌙', value: 300,  rarity: 0.0001 },
+  { name: 'Void Gem',  emoji: '🔮', value: 1000, rarity: 0.00001 },
 ];
 
 const UPGRADES = [
