@@ -204,6 +204,7 @@ function broadcastGameState(lobby) {
     upgradesBought: p.state.upgradesBought,
     achievementsUnlocked: p.state.achievementsUnlocked,
     unsoldValue: calcInventoryValue(p.state),
+    team: p.team,
   }));
   io.to(lobby.code).emit('game:state', { players: snapshot });
 }
@@ -260,6 +261,7 @@ function playerSelfPayload(state) {
 
 function endGame(lobby) {
   clearInterval(lobby.timer);
+  if (lobby.timedEnd) clearTimeout(lobby.timedEnd);
   lobby.status = 'ended';
   const results = Object.values(lobby.players)
     .map(p => ({
@@ -270,9 +272,25 @@ function endGame(lobby) {
       totalEarned: p.state.totalEarned,
       totalGems: p.state.totalGems,
       unsoldValue: calcInventoryValue(p.state),
-    }))
-    .sort((a, b) => b.totalEarned - a.totalEarned);
-  io.to(lobby.code).emit('game:ended', { results });
+      team: p.team,
+    }));
+
+  // Teams mode: rank by team combined score then individual
+  if (lobby.gameMode === 'teams') {
+    const teamScores = { A: 0, B: 0 };
+    results.forEach(r => { if (r.team) teamScores[r.team] += r.totalEarned; });
+    const winTeam = teamScores.A >= teamScores.B ? 'A' : 'B';
+    results.sort((a, b) => {
+      const aWin = a.team === winTeam ? 0 : 1;
+      const bWin = b.team === winTeam ? 0 : 1;
+      if (aWin !== bWin) return aWin - bWin;
+      return b.totalEarned - a.totalEarned;
+    });
+  } else {
+    results.sort((a, b) => b.totalEarned - a.totalEarned);
+  }
+
+  io.to(lobby.code).emit('game:ended', { results, mode: lobby.gameMode });
   setTimeout(() => lobbies.delete(lobby.code), 120_000);
 }
 
@@ -312,6 +330,8 @@ io.on('connection', (socket) => {
       status: lobby.status,
       isHost,
       self: playerSelfPayload(player.state),
+      mode: lobby.gameMode,
+      duration: lobby.gameDuration,
     });
 
     if (lobby.status === 'waiting') {
@@ -321,18 +341,20 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('lobby:create', ({ playerName }, callback) => {
+  socket.on('lobby:create', ({ playerName, mode, duration }, callback) => {
     let code;
     do { code = generateCode(); } while (lobbies.has(code));
-    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null };
+    const gameMode = mode || 'unlimited';
+    const gameDuration = gameMode === 'timed' ? (duration || 300) : null;
+    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null, gameMode, gameDuration };
     const state = createPlayerState(playerName || 'Miner', 0, 0);
-    lobby.players[socket.id] = { socketId: socket.id, state };
+    lobby.players[socket.id] = { socketId: socket.id, state, team: 'A' };
     lobbies.set(code, lobby);
     socket.join(code);
     socket.data.lobbyCode = code;
     const token = generateSessionToken();
     sessions.set(token, { lobbyCode: code, socketId: socket.id });
-    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token });
+    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token, mode: gameMode, duration: gameDuration });
     broadcastLobbyState(lobby);
   });
 
@@ -342,12 +364,14 @@ io.on('connection', (socket) => {
     const count = Object.keys(lobby.players).length;
     if (count >= MAX_PLAYERS) return callback({ ok: false, error: 'Lobby is full.' });
     const state = createPlayerState(playerName || 'Miner', count, count);
-    lobby.players[socket.id] = { socketId: socket.id, state };
+    // Teams: players 0,2 = Team A; players 1,3 = Team B
+    const team = count % 2 === 0 ? 'A' : 'B';
+    lobby.players[socket.id] = { socketId: socket.id, state, team };
     socket.join(code.toUpperCase());
     socket.data.lobbyCode = code.toUpperCase();
     const token = generateSessionToken();
     sessions.set(token, { lobbyCode: code.toUpperCase(), socketId: socket.id });
-    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state), token });
+    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state), token, mode: lobby.gameMode, duration: lobby.gameDuration });
     broadcastLobbyState(lobby);
   });
 
@@ -369,9 +393,15 @@ io.on('connection', (socket) => {
     if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can start.' });
     if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Already started.' });
     lobby.status = 'playing';
-    io.to(lobby.code).emit('game:started');
+    io.to(lobby.code).emit('game:started', { mode: lobby.gameMode, duration: lobby.gameDuration });
     startAutoMineInterval(lobby);
     broadcastGameState(lobby);
+    // Timed mode: auto-end after duration
+    if (lobby.gameMode === 'timed' && lobby.gameDuration) {
+      lobby.timedEnd = setTimeout(() => {
+        if (lobby.status === 'playing') endGame(lobby);
+      }, lobby.gameDuration * 1000);
+    }
     callback?.({ ok: true });
   });
 
