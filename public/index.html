@@ -48,22 +48,23 @@
   .error-msg{color:var(--ruby);font-size:.85rem;margin-top:.5rem;display:none;}
 
   /* ── LOBBY ── */
-  #lobby-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
-  .lobby-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2.5rem;width:100%;max-width:560px;}
-  .lobby-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.5rem;}
+  #lobby-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;overflow-y:auto;}
+  .lobby-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;width:100%;max-width:560px;}
+  .lobby-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem;}
   .lobby-header h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);letter-spacing:.1em;}
   .lobby-code{font-family:'Share Tech Mono',monospace;font-size:1rem;color:var(--muted);background:var(--surface2);padding:.3rem .8rem;border-radius:6px;border:1px solid var(--border);}
   .lobby-code span{color:var(--gold);}
   .player-slots{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.5rem;}
-  .player-slot{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:80px;display:flex;align-items:center;gap:.8rem;transition:border-color .2s;}
+  @media(max-width:480px){.player-slots{grid-template-columns:1fr;}}
+  .player-slot{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:70px;display:flex;align-items:center;gap:.8rem;transition:border-color .2s;}
   .player-slot.filled{border-color:var(--emerald);}
   .player-slot.you{border-color:var(--gold);}
   .slot-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;}
   .slot-name{font-weight:700;font-size:1rem;}
   .slot-sub{font-size:.75rem;color:var(--muted);letter-spacing:.1em;}
   .you-badge{font-family:'Share Tech Mono',monospace;font-size:.6rem;background:var(--gold);color:#1a1200;padding:.1rem .4rem;border-radius:3px;margin-left:.4rem;}
-  .lobby-actions{display:flex;gap:.8rem;}
-  .lobby-actions .btn{flex:1;}
+  .lobby-actions{display:flex;gap:.8rem;flex-wrap:wrap;}
+  .lobby-actions .btn{flex:1;min-width:120px;}
   .copy-hint{font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:.8rem;cursor:pointer;}
   .copy-hint:hover{color:var(--gold);}
   .lobby-name-row{display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;}
@@ -73,10 +74,10 @@
   .lobby-name-row button:hover{border-color:var(--gold);}
 
   /* ── GAME ── */
-  #game-screen{flex-direction:column;min-height:100vh;}
-  .game-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+  #game-screen{flex-direction:column;height:100vh;overflow:hidden;}
+  .game-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;flex-shrink:0;}
   .game-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:.1em;}
-  .game-layout{display:grid;grid-template-columns:1fr 320px;flex:1;overflow:hidden;}
+  .game-layout{display:grid;grid-template-columns:1fr 320px;flex:1;overflow:hidden;min-height:0;}
   .mine-area{padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1.2rem;overflow-y:auto;}
   .stats-row{display:flex;gap:1rem;width:100%;max-width:480px;}
   .stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;text-align:center;}
@@ -124,6 +125,7 @@
   .gem-chip{border-radius:8px;padding:.35rem .7rem;font-size:.8rem;font-family:'Share Tech Mono',monospace;display:flex;align-items:center;gap:.4rem;cursor:pointer;transition:all .12s;position:relative;border:1px solid;}
   .gem-chip:hover{transform:scale(1.05);}
   .gem-chip .chip-sell{font-size:.65rem;opacity:.7;letter-spacing:.05em;}
+  .gem-chip .gem-icon{display:inline-flex;align-items:center;vertical-align:middle;}
   .inv-empty{font-size:.8rem;color:var(--muted);font-style:italic;}
   .inv-value-row{font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--muted);margin-top:.4rem;}
   .inv-value-row span{color:var(--emerald);}
@@ -208,12 +210,16 @@
   .topbar-end-btn:hover{filter:brightness(1.15);}
 
   @media(max-width:700px){
-    .game-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
-    .mine-area{padding:1rem;}
-    .upgrade-panel{border-left:none;border-top:1px solid var(--border);max-height:380px;}
-    .mine-button{width:160px;height:160px;}
-    .mine-button .pick-icon{font-size:3rem;}
-    .orbit-zone{width:260px;height:260px;}
+    #game-screen{height:100dvh;}
+    .game-layout{grid-template-columns:1fr;grid-template-rows:1fr 300px;height:100%;}
+    .mine-area{padding:.75rem;gap:.7rem;overflow-y:hidden;}
+    .upgrade-panel{border-left:none;border-top:1px solid var(--border);height:300px;flex-shrink:0;}
+    .mine-button{width:140px;height:140px;}
+    .mine-button .pick-icon{font-size:2.5rem;}
+    .orbit-zone{width:220px;height:220px;}
+    .stats-row{gap:.5rem;}
+    .stat-box{padding:.5rem .6rem;}
+    .stat-box .stat-val{font-size:1rem;}
   }
 </style>
 </head>
@@ -223,7 +229,7 @@
 <!-- TITLE -->
 <div id="title-screen" class="screen active">
   <div class="title-logo">
-    <div class="gem-row">💎 💍 🔮 💠 🪨</div>
+    <div class="gem-row" id="title-gem-row">💎 💠 🔮 ♦️ 🪨</div>
     <h1>GEM<br>RUSH</h1>
     <p>Multiplayer Mining Battle</p>
   </div>
@@ -333,50 +339,85 @@
 
 <script>
 // ─── Constants (mirrors server) ────────────────────────────────────────────────
+// Gem SVG icons rendered inline — distinct gem shapes per type
+function gemSVG(type) {
+  const svgs = {
+    'Coal':      `<svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,1 17,9 9,17 1,9" fill="#5a4a3a" stroke="#8a6a5a" stroke-width="1.5"/></svg>`,
+    'Quartz':    `<svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,1 15,5 15,13 9,17 3,13 3,5" fill="#b0d8f8" stroke="#80b8e8" stroke-width="1.5"/></svg>`,
+    'Ruby':      `<svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,1 16,6 13,16 5,16 2,6" fill="#e03030" stroke="#ff6060" stroke-width="1.5"/><polygon points="9,3 13,7 11,13 7,13 5,7" fill="#ff8080" opacity="0.4"/></svg>`,
+    'Emerald':   `<svg width="18" height="18" viewBox="0 0 18 18"><polygon points="5,1 13,1 17,9 13,17 5,17 1,9" fill="#22b860" stroke="#40e880" stroke-width="1.5"/><polygon points="6,4 12,4 15,9 12,14 6,14 3,9" fill="#70ffa0" opacity="0.3"/></svg>`,
+    'Sapphire':  `<svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,1 17,7 14,17 4,17 1,7" fill="#2060d0" stroke="#60a0ff" stroke-width="1.5"/><polygon points="9,4 14,8 12,14 6,14 4,8" fill="#80c0ff" opacity="0.4"/></svg>`,
+    'Diamond':   `<svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,1 19,8 10,19 1,8" fill="#a0e8ff" stroke="#d0f8ff" stroke-width="1.5"/><polygon points="10,1 19,8 10,8" fill="#ffffff" opacity="0.5"/><polygon points="10,8 19,8 10,19" fill="#60c8f0" opacity="0.6"/></svg>`,
+    'Moonstone': `<svg width="20" height="20" viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="9" ry="9" fill="#c8b8f8" stroke="#e8d8ff" stroke-width="1.5"/><ellipse cx="8" cy="7" rx="4" ry="3" fill="#ffffff" opacity="0.4"/><circle cx="13" cy="13" r="2" fill="#9070d0" opacity="0.5"/></svg>`,
+    'Void Gem':  `<svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,1 13,7 19,7 14,12 16,19 10,15 4,19 6,12 1,7 7,7" fill="#6020c0" stroke="#a060ff" stroke-width="1.5"/><circle cx="10" cy="10" r="3" fill="#e0c0ff" opacity="0.6"/></svg>`,
+  };
+  return svgs[type] || `<span>💎</span>`;
+}
+
 const GEM_TYPES = [
-  { name: 'Coal',      emoji: '🪨', value: 1,    rarity: 0.25  },
-  { name: 'Quartz',    emoji: '🔷', value: 3,    rarity: 0.10  },
-  { name: 'Ruby',      emoji: '🔴', value: 8,    rarity: 0.05  },
-  { name: 'Emerald',   emoji: '💚', value: 18,   rarity: 0.01  },
-  { name: 'Sapphire',  emoji: '💎', value: 40,   rarity: 0.005  },
-  { name: 'Diamond',   emoji: '🤍', value: 100,  rarity: 0.0005 },
-  { name: 'Moonstone', emoji: '🌙', value: 300,  rarity: 0.0001 },
-  { name: 'Void Gem',  emoji: '🔮', value: 1000, rarity: 0.00001 },
+  { name: 'Coal',      color: '#8a6a5a', value: 1,    rarity: 0.45   },
+  { name: 'Quartz',    color: '#80b8e8', value: 3,    rarity: 0.25   },
+  { name: 'Ruby',      color: '#e84040', value: 8,    rarity: 0.15   },
+  { name: 'Emerald',   color: '#30d97a', value: 18,   rarity: 0.09   },
+  { name: 'Sapphire',  color: '#4090f5', value: 40,   rarity: 0.04   },
+  { name: 'Diamond',   color: '#a0e8ff', value: 100,  rarity: 0.015  },
+  { name: 'Moonstone', color: '#c8b8f8', value: 300,  rarity: 0.004  },
+  { name: 'Void Gem',  color: '#a060ff', value: 1000, rarity: 0.001  },
 ];
 const UPGRADES = [
-  {id:'pickaxe',  name:'Iron Pickaxe',   emoji:'⛏',  baseCost:30,    costMult:2.8, maxLevel:6, type:'gemsPerClick',    desc:'Swing harder. +1 gem/click per level.'},
-  {id:'gloves',   name:'Miner Gloves',   emoji:'🧤', baseCost:80,    costMult:3.0, maxLevel:5, type:'gemsPerClick',    desc:'Better grip. +0.5 gem/click per level.'},
-  {id:'helmet',   name:'Miner Helmet',   emoji:'⛑',  baseCost:150,   costMult:3.2, maxLevel:4, type:'rarityBonus',     desc:'Reveals rare veins. +12% rare gem chance.'},
-  {id:'canary',   name:'Mine Canary',    emoji:'🐦', baseCost:400,   costMult:3.5, maxLevel:5, type:'autoMine',        gemEmoji:'🪨', desc:'Tweets when coal is near. +1 gem/sec AFK.'},
-  {id:'lamp',     name:'Crystal Lamp',   emoji:'🔦', baseCost:500,   costMult:3.2, maxLevel:5, type:'valueMultiplier', desc:'Illuminates gems. +20% gem value per level.'},
-  {id:'goblin',   name:'Goblin Miner',   emoji:'👺', baseCost:900,   costMult:4.0, maxLevel:5, type:'autoMine',        gemEmoji:'🔷', desc:'Sneaky little digger. +2 gems/sec AFK.'},
-  {id:'drill',    name:'Power Drill',    emoji:'🔩', baseCost:1200,  costMult:4.2, maxLevel:4, type:'gemsPerClick',    desc:'Industrial might. +3 gems/click per level.'},
-  {id:'dwarf',    name:'Dwarf Miner',    emoji:'🧙', baseCost:2500,  costMult:4.5, maxLevel:5, type:'autoMine',        gemEmoji:'🔴', desc:'Expert craftsman. +3 gems/sec AFK.'},
-  {id:'radar',    name:'Gem Radar',      emoji:'📡', baseCost:3000,  costMult:4.5, maxLevel:4, type:'rarityBonus',     desc:'Tracks rare veins. +20% rare gem find rate.'},
-  {id:'cart',     name:'Mine Cart',      emoji:'🛒', baseCost:4000,  costMult:4.8, maxLevel:4, type:'autoMine',        gemEmoji:'💚', desc:'Hauls loads automatically. +4 gems/sec AFK.'},
-  {id:'tnt',      name:'Mining Charges', emoji:'💣', baseCost:5000,  costMult:5.5, maxLevel:3, type:'gemsPerClick',    desc:'Blast radius! +8 gems/click per level.'},
-  {id:'vault',    name:'Gold Vault',     emoji:'🏦', baseCost:8000,  costMult:5.5, maxLevel:3, type:'valueMultiplier', desc:'Secure profits. +30% gem sell value.'},
-  {id:'robot',    name:'Mining Robot',   emoji:'🤖', baseCost:12000, costMult:6.0, maxLevel:4, type:'autoMine',        gemEmoji:'💎', desc:'Robotic miner. +6 gems/sec AFK.'},
-  {id:'dragon',   name:'Cave Dragon',    emoji:'🐉', baseCost:35000, costMult:7.0, maxLevel:3, type:'autoMine',        gemEmoji:'🌙', desc:'Ancient hoarding instincts. +12 gems/sec AFK.'},
-  {id:'void_rig', name:'Void Drill Rig', emoji:'🔮', baseCost:100000,costMult:8.5, maxLevel:2, type:'autoMine',        gemEmoji:'🔮', desc:'Drills into another dimension. +25 gems/sec AFK.'},
+  {id:'pickaxe',    name:'Iron Pickaxe',      emoji:'⛏',  baseCost:30,     costMult:2.8,  maxLevel:6,  type:'gemsPerClick',    desc:'Swing harder. +1 gem/click per level.'},
+  {id:'gloves',     name:'Miner Gloves',      emoji:'🧤', baseCost:80,     costMult:3.0,  maxLevel:5,  type:'gemsPerClick',    desc:'Better grip. +0.5 gem/click per level.'},
+  {id:'helmet',     name:'Miner Helmet',      emoji:'⛑',  baseCost:150,    costMult:3.2,  maxLevel:4,  type:'rarityBonus',     desc:'Reveals rare veins. +12% rare gem chance.'},
+  {id:'canary',     name:'Mine Canary',       emoji:'🐦', baseCost:400,    costMult:3.5,  maxLevel:5,  type:'autoMine',        gemEmoji:'🪨', desc:'Tweets when coal is near. +1 gem/sec AFK.'},
+  {id:'lamp',       name:'Crystal Lamp',      emoji:'🔦', baseCost:500,    costMult:3.2,  maxLevel:5,  type:'valueMultiplier', desc:'Illuminates gems. +20% gem value per level.'},
+  {id:'goblin',     name:'Goblin Miner',      emoji:'👺', baseCost:900,    costMult:4.0,  maxLevel:5,  type:'autoMine',        gemEmoji:'🔹', desc:'Sneaky little digger. +2 gems/sec AFK.'},
+  {id:'drill',      name:'Power Drill',       emoji:'🔩', baseCost:1200,   costMult:4.2,  maxLevel:4,  type:'gemsPerClick',    desc:'Industrial might. +3 gems/click per level.'},
+  {id:'dwarf',      name:'Dwarf Miner',       emoji:'🧙', baseCost:2500,   costMult:4.5,  maxLevel:5,  type:'autoMine',        gemEmoji:'♦️',  desc:'Expert craftsman. +3 gems/sec AFK.'},
+  {id:'radar',      name:'Gem Radar',         emoji:'📡', baseCost:3000,   costMult:4.5,  maxLevel:4,  type:'rarityBonus',     desc:'Tracks rare veins. +20% rare gem find rate.'},
+  {id:'cart',       name:'Mine Cart',         emoji:'🛒', baseCost:4000,   costMult:4.8,  maxLevel:4,  type:'autoMine',        gemEmoji:'💚', desc:'Hauls loads automatically. +4 gems/sec AFK.'},
+  {id:'tnt',        name:'Mining Charges',    emoji:'💣', baseCost:5000,   costMult:5.5,  maxLevel:3,  type:'gemsPerClick',    desc:'Blast radius! +8 gems/click per level.'},
+  {id:'vault',      name:'Gold Vault',        emoji:'🏦', baseCost:8000,   costMult:5.5,  maxLevel:3,  type:'valueMultiplier', desc:'Secure profits. +30% gem sell value.'},
+  {id:'robot',      name:'Mining Robot',      emoji:'🤖', baseCost:12000,  costMult:6.0,  maxLevel:4,  type:'autoMine',        gemEmoji:'💎', desc:'Robotic miner. +6 gems/sec AFK.'},
+  {id:'lucky_pick', name:'Lucky Pickaxe',     emoji:'🍀', baseCost:15000,  costMult:5.0,  maxLevel:4,  type:'clickChance',     desc:'Fortune favours the bold. +8% click success chance.'},
+  {id:'black_mkt',  name:'Black Market',      emoji:'🕵️', baseCost:20000,  costMult:6.0,  maxLevel:3,  type:'valueMultiplier', desc:'No questions asked. +50% gem sell value.'},
+  {id:'dragon',     name:'Cave Dragon',       emoji:'🐉', baseCost:35000,  costMult:7.0,  maxLevel:3,  type:'autoMine',        gemEmoji:'🌕', desc:'Ancient hoarding instincts. +12 gems/sec AFK.'},
+  {id:'earthquake', name:'Earthquake Drill',  emoji:'🌋', baseCost:50000,  costMult:6.5,  maxLevel:3,  type:'gemsPerClick',    desc:'Shake the mountain. +15 gems/click per level.'},
+  {id:'gem_magnet', name:'Gem Magnet',        emoji:'🧲', baseCost:60000,  costMult:7.0,  maxLevel:3,  type:'rarityBonus',     desc:'Attracts only the finest. +35% rare gem rate.'},
+  {id:'time_warp',  name:'Time Warp Engine',  emoji:'⏱',  baseCost:80000,  costMult:7.5,  maxLevel:2,  type:'autoMine',        gemEmoji:'🔷', desc:'Mines gems across time. +20 gems/sec AFK.'},
+  {id:'void_rig',   name:'Void Drill Rig',    emoji:'🔮', baseCost:100000, costMult:8.5,  maxLevel:2,  type:'autoMine',        gemEmoji:'🔮', desc:'Drills into another dimension. +25 gems/sec AFK.'},
+  {id:'gem_forge',  name:'Gem Forge',         emoji:'⚗️',  baseCost:150000, costMult:8.0,  maxLevel:2,  type:'valueMultiplier', desc:'Refine raw gems. +100% sell value per level.'},
+  {id:'singularity',name:'Mining Singularity',emoji:'🌀', baseCost:500000, costMult:10.0, maxLevel:1,  type:'autoMine',        gemEmoji:'🔮', desc:'A point of infinite density. +100 gems/sec AFK.'},
 ];
 const ACHIEVEMENTS = [
-  {id:'first_click', name:'First Strike',     emoji:'⚒',  desc:'Make your first click.'},
-  {id:'clicks_50',   name:'Getting Warmed Up',emoji:'🔥', desc:'Click 50 times.'},
-  {id:'clicks_500',  name:'Mining Addict',    emoji:'💪', desc:'Click 500 times.'},
-  {id:'gems_100',    name:'Novice Miner',     emoji:'🪨', desc:'Mine 100 total gems.'},
-  {id:'gems_1000',   name:'Gem Hunter',       emoji:'💚', desc:'Mine 1,000 total gems.'},
-  {id:'gems_10000',  name:'Gem Mogul',        emoji:'💎', desc:'Mine 10,000 total gems.'},
-  {id:'profit_1000', name:'Side Hustle',      emoji:'💵', desc:'Earn $1,000 in cash.'},
-  {id:'profit_50000',name:'Gem Tycoon',       emoji:'💰', desc:'Earn $50,000 in cash.'},
-  {id:'profit_500k', name:'Mining Baron',     emoji:'🏆', desc:'Earn $500,000 in cash.'},
-  {id:'diamond',     name:'Diamond Find',     emoji:'🤍', desc:'Find a Diamond.'},
-  {id:'void',        name:'Beyond Darkness',  emoji:'🔮', desc:'Find a Void Gem.'},
-  {id:'moonstone',   name:'Lunar Touch',      emoji:'🌙', desc:'Find a Moonstone.'},
-  {id:'upgrade1',    name:'Tool Time',        emoji:'🔧', desc:'Buy your first upgrade.'},
-  {id:'upgrade5',    name:'Workshop Ready',   emoji:'🔩', desc:'Buy 5 upgrades.'},
-  {id:'auto_mine',   name:'Automation!',      emoji:'🤖', desc:'Unlock auto-mining.'},
-  {id:'auto_mine_20',name:'Factory Floor',    emoji:'🏭', desc:'Reach 20 gems/sec auto-mine.'},
+  {id:'first_click',   name:'First Strike',         emoji:'⚒',  desc:'Make your first click.'},
+  {id:'clicks_50',     name:'Getting Warmed Up',    emoji:'🔥', desc:'Click 50 times.'},
+  {id:'clicks_500',    name:'Mining Addict',        emoji:'💪', desc:'Click 500 times.'},
+  {id:'clicks_5000',   name:'Carpal Tunnel Club',   emoji:'🖱', desc:'Click 5,000 times.'},
+  {id:'gems_100',      name:'Novice Miner',         emoji:'🪨', desc:'Mine 100 total gems.'},
+  {id:'gems_1000',     name:'Gem Hunter',           emoji:'💚', desc:'Mine 1,000 total gems.'},
+  {id:'gems_10000',    name:'Gem Mogul',            emoji:'💎', desc:'Mine 10,000 total gems.'},
+  {id:'gems_100000',   name:'Gem God',              emoji:'🌋', desc:'Mine 100,000 total gems.'},
+  {id:'profit_1000',   name:'Side Hustle',          emoji:'💵', desc:'Earn $1,000 in cash.'},
+  {id:'profit_50000',  name:'Gem Tycoon',           emoji:'💰', desc:'Earn $50,000 in cash.'},
+  {id:'profit_500k',   name:'Mining Baron',         emoji:'🏆', desc:'Earn $500,000 in cash.'},
+  {id:'profit_5m',     name:'Gem Billionaire',      emoji:'💸', desc:'Earn $5,000,000 in cash.'},
+  {id:'ruby',          name:'Red Vein Found',       emoji:'♦️',  desc:'Find your first Ruby.'},
+  {id:'diamond',       name:'Diamond Find',         emoji:'💎', desc:'Find a Diamond.'},
+  {id:'moonstone',     name:'Lunar Touch',          emoji:'🌕', desc:'Find a Moonstone.'},
+  {id:'void',          name:'Beyond Darkness',      emoji:'🔮', desc:'Find a Void Gem.'},
+  {id:'void_x5',       name:'Void Collector',       emoji:'🌀', desc:'Find 5 Void Gems.'},
+  {id:'upgrade1',      name:'Tool Time',            emoji:'🔧', desc:'Buy your first upgrade.'},
+  {id:'upgrade5',      name:'Workshop Ready',       emoji:'🔩', desc:'Buy 5 upgrades.'},
+  {id:'upgrade10',     name:'Full Arsenal',         emoji:'🏗', desc:'Buy 10 upgrades.'},
+  {id:'upgrade20',     name:'Max Loadout',          emoji:'🚀', desc:'Buy 20 upgrades.'},
+  {id:'auto_mine',     name:'Automation!',          emoji:'🤖', desc:'Unlock auto-mining.'},
+  {id:'auto_mine_20',  name:'Factory Floor',        emoji:'🏭', desc:'Reach 20 gems/sec auto-mine.'},
+  {id:'auto_mine_100', name:'Infinite Mine',        emoji:'♾',  desc:'Reach 100 gems/sec auto-mine.'},
+  {id:'rich_click',    name:'Jackpot Click',        emoji:'🎰', desc:'Reach 20 gems per click.'},
+  {id:'sell_spree',    name:'Cash Out King',        emoji:'🏧', desc:'Sell gems 50 times.'},
+  {id:'hoarder',       name:'Hoarder',              emoji:'🐲', desc:'Hold 500+ gems in inventory.'},
+  {id:'void_rig_max',  name:'Void Lord',            emoji:'👁', desc:'Max out the Void Drill Rig.'},
+  {id:'singularity_u', name:'Singularity Achieved', emoji:'🌀', desc:'Unlock the Mining Singularity.'},
 ];
 
 // ─── State ─────────────────────────────────────────────────────────────────────
@@ -387,6 +428,7 @@ let lobbyCode = null;
 let selfState = null;
 let allPlayers = [];
 let currentTab = 'upgrades';
+let sessionToken = null;
 // Track which orbiting miner elements exist
 const orbitMiners = {}; // upgradeId -> DOM element
 
@@ -399,6 +441,41 @@ function initSocket() {
     setBadge('connected', '● Online');
     document.getElementById('btn-create').disabled = false;
     document.getElementById('btn-join').disabled = false;
+
+    // Try to restore session after reconnect
+    const storedToken = sessionStorage.getItem('gemrush_token');
+    const storedCode  = sessionStorage.getItem('gemrush_code');
+    const storedHost  = sessionStorage.getItem('gemrush_host');
+    const storedName  = sessionStorage.getItem('gemrush_name');
+    if (storedToken && storedCode) {
+      socket.emit('session:restore', { token: storedToken }, (res) => {
+        if (!res || !res.ok) {
+          // Session expired — clear and show title
+          clearSession();
+          return;
+        }
+        sessionToken = storedToken;
+        lobbyCode = res.code;
+        isHost = res.isHost;
+        selfState = res.self;
+        document.getElementById('lobby-code-display').textContent = lobbyCode;
+        document.getElementById('lobby-name-input').value = selfState?.name || storedName || '';
+        if (res.status === 'playing') {
+          showScreen('game-screen');
+          document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
+          if (isHost) document.getElementById('end-game-btn').style.display = 'block';
+          updateStats();
+          syncOrbitMiners();
+          renderUpgrades();
+          renderAchievements();
+          showToast('🔄', 'Reconnected!', 'Back in the game.');
+        } else {
+          document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+          showScreen('lobby-screen');
+          showToast('🔄', 'Reconnected!', 'Back in the lobby.');
+        }
+      });
+    }
   });
   socket.on('disconnect', () => {
     setBadge('disconnected', '● Offline');
@@ -475,6 +552,8 @@ function createLobby() {
     lobbyCode = res.code;
     isHost = true;
     selfState = res.self;
+    sessionToken = res.token;
+    saveSession(res.token, res.code, true, selfState.name);
     document.getElementById('lobby-code-display').textContent = lobbyCode;
     document.getElementById('lobby-name-input').value = selfState.name;
     document.getElementById('start-btn').style.display = 'block';
@@ -491,6 +570,8 @@ function joinLobby() {
     lobbyCode = res.code;
     isHost = false;
     selfState = res.self;
+    sessionToken = res.token;
+    saveSession(res.token, res.code, false, selfState.name);
     document.getElementById('lobby-code-display').textContent = lobbyCode;
     document.getElementById('lobby-name-input').value = selfState.name;
     document.getElementById('start-btn').style.display = 'none';
@@ -565,7 +646,7 @@ function doMine(e) {
       spawnMissParticle(e);
     } else {
       spawnClickParticle(e, `+${res.gemsAdded}`);
-      res.drops?.forEach(d => spawnGemParticle(e, d.emoji));
+      res.drops?.forEach(d => spawnGemParticle(e, d.name));
     }
     if (currentTab === 'upgrades') renderUpgrades();
   });
@@ -579,10 +660,10 @@ function spawnClickParticle(e, text) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 900);
 }
-function spawnGemParticle(e, emoji) {
+function spawnGemParticle(e, gemName) {
   const el = document.createElement('div');
   el.className = 'gem-drop';
-  el.textContent = emoji;
+  el.innerHTML = gemSVG(gemName);
   el.style.cssText = `left:${e.clientX-10+(Math.random()-.5)*40}px;top:${e.clientY-20}px`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1000);
@@ -603,7 +684,7 @@ function spawnAfkGems(drops) {
   const rect = zone.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-  const toShow = drops.slice(0, 6); // max 6 per tick so it doesn't go crazy
+  const toShow = drops.slice(0, 6);
   toShow.forEach((d, i) => {
     const angle = (Math.random() * Math.PI * 2);
     const dist = 60 + Math.random() * 60;
@@ -611,7 +692,8 @@ function spawnAfkGems(drops) {
     const dy = Math.sin(angle) * dist - 40;
     const el = document.createElement('div');
     el.className = 'afk-gem';
-    el.textContent = d.emoji;
+    const gemName = d.name || '';
+    el.innerHTML = gemSVG(gemName);
     el.style.cssText = `left:${cx + (Math.random()-.5)*20}px;top:${cy + (Math.random()-.5)*20}px;--dx:${dx}px;--dy:${dy}px;animation-delay:${i*60}ms`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1200);
@@ -707,8 +789,7 @@ function sellGem(gemName) {
   socket.emit('game:sell', { gemName, quantity: -1 }, (res) => {
     if (!res || !res.ok) { showToast('❌','Cannot sell', res?.error || ''); return; }
     selfState = res.self;
-    const gem = GEM_TYPES.find(g => g.name === gemName);
-    showToast(gem?.emoji || '💰', 'Gems Sold!', `+$${res.earned.toLocaleString()} from ${gemName}`);
+    showToast('💰', 'Gems Sold!', `+$${res.earned.toLocaleString()} from ${gemName}`);
     updateStats();
     if (currentTab === 'upgrades') renderUpgrades();
   });
@@ -844,7 +925,7 @@ function renderInventory() {
     const chip = document.createElement('div');
     chip.className = 'gem-chip';
     chip.style.cssText = `background:${g.color}22;border-color:${g.color}55;color:${g.color};`;
-    chip.innerHTML = `${g.emoji} <strong>${count}</strong> <span class="chip-sell">· $${total.toLocaleString()}</span>`;
+    chip.innerHTML = `<span class="gem-icon">${gemSVG(g.name)}</span> <strong>${count}</strong> <span class="chip-sell">· $${total.toLocaleString()}</span>`;
     chip.title = `${g.name} — $${perGem} each — Click to sell all`;
     chip.onclick = () => sellGem(g.name);
     container.appendChild(chip);
@@ -929,12 +1010,26 @@ function showEndScreen(results) {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+function saveSession(token, code, host, name) {
+  sessionStorage.setItem('gemrush_token', token);
+  sessionStorage.setItem('gemrush_code',  code);
+  sessionStorage.setItem('gemrush_host',  host ? '1' : '');
+  sessionStorage.setItem('gemrush_name',  name || '');
+}
+function clearSession() {
+  sessionStorage.removeItem('gemrush_token');
+  sessionStorage.removeItem('gemrush_code');
+  sessionStorage.removeItem('gemrush_host');
+  sessionStorage.removeItem('gemrush_name');
+}
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 function goTitle() {
   lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+  sessionToken = null;
+  clearSession();
   clearOrbitMiners();
   showScreen('title-screen');
 }
