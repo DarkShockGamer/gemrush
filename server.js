@@ -97,13 +97,24 @@ function createPlayerState(name, avatarIndex, colorIndex) {
 
 function rollGem(player) {
   const bonus = player.rarityBonus || 0;
-  const r = Math.random() * (1 - bonus * 0.5);
-  let cumulative = 0;
-  for (const gem of GEM_TYPES) {
-    cumulative += gem.rarity;
-    if (r <= cumulative) return gem;
+
+  // Build adjusted weights: boost rare gems (low base rarity) by rarityBonus,
+  // then pull weight proportionally from common gems so total stays stable.
+  const weights = GEM_TYPES.map((gem, i) => {
+    // Rarity index 0 = most common, last = rarest.
+    // Give a proportional bonus to gems beyond the first two tiers.
+    const rarityTier = i / (GEM_TYPES.length - 1); // 0..1
+    const boost = 1 + bonus * rarityTier * 4;       // up to 4× at max tier
+    return gem.rarity * boost;
+  });
+
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+  let r = Math.random() * totalWeight;
+  for (let i = 0; i < GEM_TYPES.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return GEM_TYPES[i];
   }
-  return GEM_TYPES[0];
+  return GEM_TYPES[GEM_TYPES.length - 1];
 }
 
 function upgradeCost(upgradeId, level) {
@@ -256,7 +267,6 @@ io.on('connection', (socket) => {
   socket.on('lobby:join', ({ playerName, code }, callback) => {
     const lobby = lobbies.get(code.toUpperCase());
     if (!lobby) return callback({ ok: false, error: 'Lobby not found.' });
-    if (lobby.status !== 'waiting') return callback({ ok: false, error: 'Game already started.' });
     const count = Object.keys(lobby.players).length;
     if (count >= MAX_PLAYERS) return callback({ ok: false, error: 'Lobby is full.' });
     const state = createPlayerState(playerName || 'Miner', count, count);
