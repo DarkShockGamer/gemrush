@@ -233,6 +233,10 @@
   .team-score-bar{display:flex;gap:.5rem;align-items:center;padding:.5rem .8rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:.8rem;margin-bottom:.5rem;}
   .team-score-bar .ts-label{font-weight:700;}
   .team-score-bar .ts-val{flex:1;text-align:right;}
+
+  /* ── MOBILE ── */
+  .panel-toggle-hint{display:none;}
+  @media(max-width:700px){
     #game-screen{height:100dvh;}
     .game-layout{grid-template-columns:1fr;grid-template-rows:1fr auto;height:100%;}
     .mine-area{padding:.75rem;gap:.7rem;overflow-y:hidden;}
@@ -240,7 +244,7 @@
     .upgrade-panel.panel-collapsed{height:42px;overflow:hidden;}
     .upgrade-panel.panel-open{height:300px;}
     .panel-tabs{position:relative;}
-    .panel-toggle-hint{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--muted);font-family:'Share Tech Mono',monospace;pointer-events:none;transition:opacity .2s;}
+    .panel-toggle-hint{display:block;position:absolute;right:.6rem;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--muted);font-family:'Share Tech Mono',monospace;pointer-events:none;}
     .upgrade-panel.panel-open .panel-toggle-hint .hint-open{display:none;}
     .upgrade-panel.panel-collapsed .panel-toggle-hint .hint-close{display:none;}
     .mine-button{width:140px;height:140px;}
@@ -1279,4 +1283,4 @@ function showToast(icon, title, msg) {
 initSocket();
 </script>
 </body>
-  </html>
+</html>
