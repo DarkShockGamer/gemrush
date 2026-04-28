@@ -17,61 +17,86 @@ app.get('/', (req, res) => {
 const MAX_PLAYERS = 4;
 
 const GEM_TYPES = [
-  { name: 'Coal',      emoji: '🪨', value: 1,    rarity: 0.25  },
-  { name: 'Quartz',    emoji: '🔷', value: 3,    rarity: 0.10  },
-  { name: 'Ruby',      emoji: '🔴', value: 8,    rarity: 0.05  },
-  { name: 'Emerald',   emoji: '💚', value: 18,   rarity: 0.01  },
-  { name: 'Sapphire',  emoji: '💎', value: 40,   rarity: 0.005  },
-  { name: 'Diamond',   emoji: '🤍', value: 100,  rarity: 0.0005 },
-  { name: 'Moonstone', emoji: '🌙', value: 300,  rarity: 0.0001 },
-  { name: 'Void Gem',  emoji: '🔮', value: 1000, rarity: 0.00001 },
+  { name: 'Coal',      emoji: '🪨', color: '#5a4a3a', value: 1,    rarity: 0.45  },
+  { name: 'Quartz',    emoji: '🔹', color: '#aaddff', value: 3,    rarity: 0.25  },
+  { name: 'Ruby',      emoji: '♦️',  color: '#e84040', value: 8,    rarity: 0.15  },
+  { name: 'Emerald',   emoji: '💚', color: '#30d97a', value: 18,   rarity: 0.09  },
+  { name: 'Sapphire',  emoji: '🔷', color: '#4090f5', value: 40,   rarity: 0.04  },
+  { name: 'Diamond',   emoji: '💎', color: '#c0f0ff', value: 100,  rarity: 0.015 },
+  { name: 'Moonstone', emoji: '🌕', color: '#e8d8ff', value: 300,  rarity: 0.004 },
+  { name: 'Void Gem',  emoji: '🔮', color: '#9040f0', value: 1000, rarity: 0.001 },
 ];
 
 const UPGRADES = [
-  { id: 'pickaxe',  name: 'Iron Pickaxe',   emoji: '⛏',  baseCost: 30,     costMult: 2.8,  maxLevel: 6,  type: 'gemsPerClick',    amount: 1,    desc: 'Swing harder. +1 gem/click per level.' },
-  { id: 'gloves',   name: 'Miner Gloves',   emoji: '🧤', baseCost: 80,     costMult: 3.0,  maxLevel: 5,  type: 'gemsPerClick',    amount: 0.5,  desc: 'Better grip. +0.5 gem/click per level.' },
-  { id: 'helmet',   name: 'Miner Helmet',   emoji: '⛑',  baseCost: 150,    costMult: 3.2,  maxLevel: 4,  type: 'rarityBonus',     amount: 0.12, desc: 'Reveals rare veins. +12% rare gem chance.' },
-  { id: 'canary',   name: 'Mine Canary',    emoji: '🐦', baseCost: 400,    costMult: 3.5,  maxLevel: 5,  type: 'autoMine',        amount: 1,    gemEmoji: '🪨', desc: 'Tweets when coal is near. +1 gem/sec.' },
-  { id: 'lamp',     name: 'Crystal Lamp',   emoji: '🔦', baseCost: 500,    costMult: 3.2,  maxLevel: 5,  type: 'valueMultiplier', amount: 0.20, desc: 'Illuminates gems. +20% gem value per level.' },
-  { id: 'goblin',   name: 'Goblin Miner',   emoji: '👺', baseCost: 900,    costMult: 4.0,  maxLevel: 5,  type: 'autoMine',        amount: 2,    gemEmoji: '🔷', desc: 'Sneaky little digger. +2 gems/sec.' },
-  { id: 'drill',    name: 'Power Drill',    emoji: '🔩', baseCost: 1200,   costMult: 4.2,  maxLevel: 4,  type: 'gemsPerClick',    amount: 3,    desc: 'Industrial might. +3 gems/click per level.' },
-  { id: 'dwarf',    name: 'Dwarf Miner',    emoji: '🧙', baseCost: 2500,   costMult: 4.5,  maxLevel: 5,  type: 'autoMine',        amount: 3,    gemEmoji: '🔴', desc: 'Expert craftsman. +3 gems/sec.' },
-  { id: 'radar',    name: 'Gem Radar',      emoji: '📡', baseCost: 3000,   costMult: 4.5,  maxLevel: 4,  type: 'rarityBonus',     amount: 0.20, desc: 'Tracks rare veins. +20% rare gem find rate.' },
-  { id: 'cart',     name: 'Mine Cart',      emoji: '🛒', baseCost: 4000,   costMult: 4.8,  maxLevel: 4,  type: 'autoMine',        amount: 4,    gemEmoji: '💚', desc: 'Hauls loads automatically. +4 gems/sec.' },
-  { id: 'tnt',      name: 'Mining Charges', emoji: '💣', baseCost: 5000,   costMult: 5.5,  maxLevel: 3,  type: 'gemsPerClick',    amount: 8,    desc: 'Blast radius! +8 gems/click per level.' },
-  { id: 'vault',    name: 'Gold Vault',     emoji: '🏦', baseCost: 8000,   costMult: 5.5,  maxLevel: 3,  type: 'valueMultiplier', amount: 0.30, desc: 'Secure profits. +30% gem sell value.' },
-  { id: 'robot',    name: 'Mining Robot',   emoji: '🤖', baseCost: 12000,  costMult: 6.0,  maxLevel: 4,  type: 'autoMine',        amount: 6,    gemEmoji: '💎', desc: 'Robotic miner. +6 gems/sec.' },
-  { id: 'dragon',   name: 'Cave Dragon',    emoji: '🐉', baseCost: 35000,  costMult: 7.0,  maxLevel: 3,  type: 'autoMine',        amount: 12,   gemEmoji: '🌙', desc: 'Ancient hoarding instincts. +12 gems/sec.' },
-  { id: 'void_rig', name: 'Void Drill Rig', emoji: '🔮', baseCost: 100000, costMult: 8.5,  maxLevel: 2,  type: 'autoMine',        amount: 25,   gemEmoji: '🔮', desc: 'Drills into another dimension. +25 gems/sec.' },
+  { id: 'pickaxe',    name: 'Iron Pickaxe',     emoji: '⛏',  baseCost: 30,     costMult: 2.8,  maxLevel: 6,  type: 'gemsPerClick',    amount: 1,    desc: 'Swing harder. +1 gem/click per level.' },
+  { id: 'gloves',     name: 'Miner Gloves',     emoji: '🧤', baseCost: 80,     costMult: 3.0,  maxLevel: 5,  type: 'gemsPerClick',    amount: 0.5,  desc: 'Better grip. +0.5 gem/click per level.' },
+  { id: 'helmet',     name: 'Miner Helmet',     emoji: '⛑',  baseCost: 150,    costMult: 3.2,  maxLevel: 4,  type: 'rarityBonus',     amount: 0.12, desc: 'Reveals rare veins. +12% rare gem chance.' },
+  { id: 'canary',     name: 'Mine Canary',      emoji: '🐦', baseCost: 400,    costMult: 3.5,  maxLevel: 5,  type: 'autoMine',        amount: 1,    gemEmoji: '🪨', desc: 'Tweets when coal is near. +1 gem/sec AFK.' },
+  { id: 'lamp',       name: 'Crystal Lamp',     emoji: '🔦', baseCost: 500,    costMult: 3.2,  maxLevel: 5,  type: 'valueMultiplier', amount: 0.20, desc: 'Illuminates gems. +20% gem value per level.' },
+  { id: 'goblin',     name: 'Goblin Miner',     emoji: '👺', baseCost: 900,    costMult: 4.0,  maxLevel: 5,  type: 'autoMine',        amount: 2,    gemEmoji: '🔹', desc: 'Sneaky little digger. +2 gems/sec AFK.' },
+  { id: 'drill',      name: 'Power Drill',      emoji: '🔩', baseCost: 1200,   costMult: 4.2,  maxLevel: 4,  type: 'gemsPerClick',    amount: 3,    desc: 'Industrial might. +3 gems/click per level.' },
+  { id: 'dwarf',      name: 'Dwarf Miner',      emoji: '🧙', baseCost: 2500,   costMult: 4.5,  maxLevel: 5,  type: 'autoMine',        amount: 3,    gemEmoji: '♦️',  desc: 'Expert craftsman. +3 gems/sec AFK.' },
+  { id: 'radar',      name: 'Gem Radar',        emoji: '📡', baseCost: 3000,   costMult: 4.5,  maxLevel: 4,  type: 'rarityBonus',     amount: 0.20, desc: 'Tracks rare veins. +20% rare gem find rate.' },
+  { id: 'cart',       name: 'Mine Cart',        emoji: '🛒', baseCost: 4000,   costMult: 4.8,  maxLevel: 4,  type: 'autoMine',        amount: 4,    gemEmoji: '💚', desc: 'Hauls loads automatically. +4 gems/sec AFK.' },
+  { id: 'tnt',        name: 'Mining Charges',   emoji: '💣', baseCost: 5000,   costMult: 5.5,  maxLevel: 3,  type: 'gemsPerClick',    amount: 8,    desc: 'Blast radius! +8 gems/click per level.' },
+  { id: 'vault',      name: 'Gold Vault',       emoji: '🏦', baseCost: 8000,   costMult: 5.5,  maxLevel: 3,  type: 'valueMultiplier', amount: 0.30, desc: 'Secure profits. +30% gem sell value.' },
+  { id: 'robot',      name: 'Mining Robot',     emoji: '🤖', baseCost: 12000,  costMult: 6.0,  maxLevel: 4,  type: 'autoMine',        amount: 6,    gemEmoji: '💎', desc: 'Robotic miner. +6 gems/sec AFK.' },
+  { id: 'lucky_pick', name: 'Lucky Pickaxe',    emoji: '🍀', baseCost: 15000,  costMult: 5.0,  maxLevel: 4,  type: 'clickChance',     amount: 0.08, desc: 'Fortune favours the bold. +8% click success chance.' },
+  { id: 'black_mkt',  name: 'Black Market',     emoji: '🕵️', baseCost: 20000,  costMult: 6.0,  maxLevel: 3,  type: 'valueMultiplier', amount: 0.50, desc: 'No questions asked. +50% gem sell value.' },
+  { id: 'dragon',     name: 'Cave Dragon',      emoji: '🐉', baseCost: 35000,  costMult: 7.0,  maxLevel: 3,  type: 'autoMine',        amount: 12,   gemEmoji: '🌕', desc: 'Ancient hoarding instincts. +12 gems/sec AFK.' },
+  { id: 'earthquake', name: 'Earthquake Drill', emoji: '🌋', baseCost: 50000,  costMult: 6.5,  maxLevel: 3,  type: 'gemsPerClick',    amount: 15,   desc: 'Shake the mountain. +15 gems/click per level.' },
+  { id: 'gem_magnet', name: 'Gem Magnet',       emoji: '🧲', baseCost: 60000,  costMult: 7.0,  maxLevel: 3,  type: 'rarityBonus',     amount: 0.35, desc: 'Attracts only the finest. +35% rare gem rate.' },
+  { id: 'time_warp',  name: 'Time Warp Engine', emoji: '⏱',  baseCost: 80000,  costMult: 7.5,  maxLevel: 2,  type: 'autoMine',        amount: 20,   gemEmoji: '🔷', desc: 'Mines gems across time. +20 gems/sec AFK.' },
+  { id: 'void_rig',   name: 'Void Drill Rig',   emoji: '🔮', baseCost: 100000, costMult: 8.5,  maxLevel: 2,  type: 'autoMine',        amount: 25,   gemEmoji: '🔮', desc: 'Drills into another dimension. +25 gems/sec AFK.' },
+  { id: 'gem_forge',  name: 'Gem Forge',        emoji: '⚗️',  baseCost: 150000, costMult: 8.0,  maxLevel: 2,  type: 'valueMultiplier', amount: 1.00, desc: 'Refine raw gems. +100% sell value per level.' },
+  { id: 'singularity',name: 'Mining Singularity',emoji:'🌀', baseCost: 500000, costMult: 10.0, maxLevel: 1,  type: 'autoMine',        amount: 100,  gemEmoji: '🔮', desc: 'A point of infinite density. +100 gems/sec AFK.' },
 ];
 
 const ACHIEVEMENTS = [
-  { id: 'first_click',  name: 'First Strike',     emoji: '⚒',  check: s => s.totalClicks >= 1       },
-  { id: 'clicks_50',    name: 'Getting Warmed Up', emoji: '🔥', check: s => s.totalClicks >= 50      },
-  { id: 'clicks_500',   name: 'Mining Addict',     emoji: '💪', check: s => s.totalClicks >= 500     },
-  { id: 'gems_100',     name: 'Novice Miner',      emoji: '🪨', check: s => s.totalGems >= 100       },
-  { id: 'gems_1000',    name: 'Gem Hunter',        emoji: '💚', check: s => s.totalGems >= 1000      },
-  { id: 'gems_10000',   name: 'Gem Mogul',         emoji: '💎', check: s => s.totalGems >= 10000     },
-  { id: 'profit_1000',  name: 'Side Hustle',       emoji: '💵', check: s => s.totalEarned >= 1000    },
-  { id: 'profit_50000', name: 'Gem Tycoon',        emoji: '💰', check: s => s.totalEarned >= 50000   },
-  { id: 'profit_500k',  name: 'Mining Baron',      emoji: '🏆', check: s => s.totalEarned >= 500000  },
-  { id: 'diamond',      name: 'Diamond Find',      emoji: '🤍', check: s => (s.inventory['Diamond']  || 0) >= 1 },
-  { id: 'void',         name: 'Beyond Darkness',   emoji: '🔮', check: s => (s.inventory['Void Gem'] || 0) >= 1 },
-  { id: 'moonstone',    name: 'Lunar Touch',       emoji: '🌙', check: s => (s.inventory['Moonstone']|| 0) >= 1 },
-  { id: 'upgrade1',     name: 'Tool Time',         emoji: '🔧', check: s => s.upgradesBought >= 1    },
-  { id: 'upgrade5',     name: 'Workshop Ready',    emoji: '🔩', check: s => s.upgradesBought >= 5    },
-  { id: 'auto_mine',    name: 'Automation!',       emoji: '🤖', check: s => s.autoMine >= 1          },
-  { id: 'auto_mine_20', name: 'Factory Floor',     emoji: '🏭', check: s => s.autoMine >= 20         },
+  { id: 'first_click',   name: 'First Strike',        emoji: '⚒',  check: s => s.totalClicks >= 1        },
+  { id: 'clicks_50',     name: 'Getting Warmed Up',   emoji: '🔥', check: s => s.totalClicks >= 50       },
+  { id: 'clicks_500',    name: 'Mining Addict',       emoji: '💪', check: s => s.totalClicks >= 500      },
+  { id: 'clicks_5000',   name: 'Carpal Tunnel Club',  emoji: '🖱', check: s => s.totalClicks >= 5000     },
+  { id: 'gems_100',      name: 'Novice Miner',        emoji: '🪨', check: s => s.totalGems >= 100        },
+  { id: 'gems_1000',     name: 'Gem Hunter',          emoji: '💚', check: s => s.totalGems >= 1000       },
+  { id: 'gems_10000',    name: 'Gem Mogul',           emoji: '💎', check: s => s.totalGems >= 10000      },
+  { id: 'gems_100000',   name: 'Gem God',             emoji: '🌋', check: s => s.totalGems >= 100000     },
+  { id: 'profit_1000',   name: 'Side Hustle',         emoji: '💵', check: s => s.totalEarned >= 1000     },
+  { id: 'profit_50000',  name: 'Gem Tycoon',          emoji: '💰', check: s => s.totalEarned >= 50000    },
+  { id: 'profit_500k',   name: 'Mining Baron',        emoji: '🏆', check: s => s.totalEarned >= 500000   },
+  { id: 'profit_5m',     name: 'Gem Billionaire',     emoji: '💸', check: s => s.totalEarned >= 5000000  },
+  { id: 'ruby',          name: 'Red Vein Found',      emoji: '♦️',  check: s => (s.inventory['Ruby']     || 0) + (s.totalSold?.['Ruby']     || 0) >= 1 },
+  { id: 'diamond',       name: 'Diamond Find',        emoji: '💎', check: s => (s.inventory['Diamond']  || 0) + (s.totalSold?.['Diamond']  || 0) >= 1 },
+  { id: 'moonstone',     name: 'Lunar Touch',         emoji: '🌕', check: s => (s.inventory['Moonstone']|| 0) + (s.totalSold?.['Moonstone']|| 0) >= 1 },
+  { id: 'void',          name: 'Beyond Darkness',     emoji: '🔮', check: s => (s.inventory['Void Gem'] || 0) + (s.totalSold?.['Void Gem'] || 0) >= 1 },
+  { id: 'void_x5',       name: 'Void Collector',      emoji: '🌀', check: s => (s.inventory['Void Gem'] || 0) + (s.totalSold?.['Void Gem'] || 0) >= 5  },
+  { id: 'upgrade1',      name: 'Tool Time',           emoji: '🔧', check: s => s.upgradesBought >= 1     },
+  { id: 'upgrade5',      name: 'Workshop Ready',      emoji: '🔩', check: s => s.upgradesBought >= 5     },
+  { id: 'upgrade10',     name: 'Full Arsenal',        emoji: '🏗', check: s => s.upgradesBought >= 10    },
+  { id: 'upgrade20',     name: 'Max Loadout',         emoji: '🚀', check: s => s.upgradesBought >= 20    },
+  { id: 'auto_mine',     name: 'Automation!',         emoji: '🤖', check: s => s.autoMine >= 1           },
+  { id: 'auto_mine_20',  name: 'Factory Floor',       emoji: '🏭', check: s => s.autoMine >= 20          },
+  { id: 'auto_mine_100', name: 'Infinite Mine',       emoji: '♾',  check: s => s.autoMine >= 100         },
+  { id: 'rich_click',    name: 'Jackpot Click',       emoji: '🎰', check: s => s.gemsPerClick >= 20      },
+  { id: 'sell_spree',    name: 'Cash Out King',       emoji: '🏧', check: s => (s.totalSellCount || 0) >= 50 },
+  { id: 'hoarder',       name: 'Hoarder',             emoji: '🐲', check: s => Object.values(s.inventory).reduce((a,b)=>a+b,0) >= 500 },
+  { id: 'void_rig_max',  name: 'Void Lord',           emoji: '👁', check: s => (s.upgradeLevels?.['void_rig'] || 0) >= 2 },
+  { id: 'singularity_u', name: 'Singularity Achieved',emoji: '🌀', check: s => (s.upgradeLevels?.['singularity'] || 0) >= 1 },
 ];
 
 const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
 const lobbies = new Map();
+const sessions = new Map(); // sessionToken -> { lobbyCode, socketId, playerName }
 
 function generateCode() {
   const words = ['GOLD','IRON','COAL','RUBY','JADE','OPAL','ONYX','GEMS'];
   return words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(1000 + Math.random() * 9000);
+}
+
+function generateSessionToken() {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
 function createPlayerState(name, avatarIndex, colorIndex) {
@@ -92,6 +117,8 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     inventory: {},
     achievementsUnlocked: [],
     upgradeLevels: {},
+    totalSold: {},
+    totalSellCount: 0,
   };
 }
 
@@ -134,6 +161,7 @@ function applyUpgrade(player, upgradeId) {
     case 'autoMine':        player.autoMine        += u.amount; break;
     case 'rarityBonus':     player.rarityBonus     += u.amount; break;
     case 'valueMultiplier': player.valueMultiplier += u.amount; break;
+    case 'clickChance':     player.clickChance = Math.min(1, player.clickChance + u.amount); break;
   }
 }
 
@@ -251,6 +279,48 @@ function endGame(lobby) {
 io.on('connection', (socket) => {
   console.log('[+] Connected: ' + socket.id);
 
+  // ── Session reconnect ──────────────────────────────────────────────────────
+  socket.on('session:restore', ({ token }, callback) => {
+    const session = sessions.get(token);
+    if (!session) return callback?.({ ok: false });
+    const lobby = lobbies.get(session.lobbyCode);
+    if (!lobby) return callback?.({ ok: false });
+
+    // Re-attach socket to player slot
+    const player = lobby.players[session.socketId];
+    if (!player) return callback?.({ ok: false });
+
+    // Cancel any pending disconnect eviction
+    if (lobby._disconnectTimers?.[session.socketId]) {
+      clearTimeout(lobby._disconnectTimers[session.socketId]);
+      delete lobby._disconnectTimers[session.socketId];
+    }
+
+    // Move player to new socket id
+    lobby.players[socket.id] = player;
+    delete lobby.players[session.socketId];
+    if (lobby.hostId === session.socketId) lobby.hostId = socket.id;
+    session.socketId = socket.id;
+
+    socket.join(lobby.code);
+    socket.data.lobbyCode = lobby.code;
+
+    const isHost = lobby.hostId === socket.id;
+    callback?.({
+      ok: true,
+      code: lobby.code,
+      status: lobby.status,
+      isHost,
+      self: playerSelfPayload(player.state),
+    });
+
+    if (lobby.status === 'waiting') {
+      broadcastLobbyState(lobby);
+    } else if (lobby.status === 'playing') {
+      broadcastGameState(lobby);
+    }
+  });
+
   socket.on('lobby:create', ({ playerName }, callback) => {
     let code;
     do { code = generateCode(); } while (lobbies.has(code));
@@ -260,7 +330,9 @@ io.on('connection', (socket) => {
     lobbies.set(code, lobby);
     socket.join(code);
     socket.data.lobbyCode = code;
-    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state) });
+    const token = generateSessionToken();
+    sessions.set(token, { lobbyCode: code, socketId: socket.id });
+    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token });
     broadcastLobbyState(lobby);
   });
 
@@ -273,7 +345,9 @@ io.on('connection', (socket) => {
     lobby.players[socket.id] = { socketId: socket.id, state };
     socket.join(code.toUpperCase());
     socket.data.lobbyCode = code.toUpperCase();
-    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state) });
+    const token = generateSessionToken();
+    sessions.set(token, { lobbyCode: code.toUpperCase(), socketId: socket.id });
+    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state), token });
     broadcastLobbyState(lobby);
   });
 
@@ -354,6 +428,9 @@ io.on('connection', (socket) => {
     if (p.state.inventory[gemName] === 0) delete p.state.inventory[gemName];
     p.state.profit += earned;
     p.state.totalEarned += earned;
+    p.state.totalSold = p.state.totalSold || {};
+    p.state.totalSold[gemName] = (p.state.totalSold[gemName] || 0) + toSell;
+    p.state.totalSellCount = (p.state.totalSellCount || 0) + 1;
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     broadcastGameState(lobby);
@@ -386,18 +463,30 @@ io.on('connection', (socket) => {
     if (!code) return;
     const lobby = lobbies.get(code);
     if (!lobby) return;
-    delete lobby.players[socket.id];
-    const remaining = Object.keys(lobby.players).length;
-    if (remaining === 0) {
-      clearInterval(lobby.timer);
-      lobbies.delete(code);
-    } else {
-      if (lobby.hostId === socket.id) {
-        lobby.hostId = Object.keys(lobby.players)[0];
-        io.to(lobby.code).emit('lobby:newHost', { hostId: lobby.hostId });
+
+    // Give player 30s to reconnect before removing them
+    const disconnectTimer = setTimeout(() => {
+      if (!lobby.players[socket.id]) return; // already reconnected under new id
+      delete lobby.players[socket.id];
+      const remaining = Object.keys(lobby.players).length;
+      if (remaining === 0) {
+        clearInterval(lobby.timer);
+        lobbies.delete(code);
+      } else {
+        if (lobby.hostId === socket.id) {
+          lobby.hostId = Object.keys(lobby.players)[0];
+          io.to(lobby.code).emit('lobby:newHost', { hostId: lobby.hostId });
+        }
+        if (lobby.status === 'waiting') broadcastLobbyState(lobby);
+        else broadcastGameState(lobby);
       }
-      if (lobby.status === 'waiting') broadcastLobbyState(lobby);
-    }
+    }, 30000);
+
+    // Store timer ref so reconnect can cancel it
+    if (!lobby._disconnectTimers) lobby._disconnectTimers = {};
+    lobby._disconnectTimers[socket.id] = disconnectTimer;
+
+    if (lobby.status === 'waiting') broadcastLobbyState(lobby);
   });
 });
 
