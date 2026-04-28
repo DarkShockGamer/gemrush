@@ -66,7 +66,6 @@
   .lobby-actions .btn{flex:1;}
   .copy-hint{font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:.8rem;cursor:pointer;}
   .copy-hint:hover{color:var(--gold);}
-  /* Name change in lobby */
   .lobby-name-row{display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;}
   .lobby-name-row input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.5rem .8rem;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;}
   .lobby-name-row input:focus{border-color:var(--gold);}
@@ -83,8 +82,12 @@
   .stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;text-align:center;}
   .stat-box .stat-val{font-family:'Share Tech Mono',monospace;font-size:1.3rem;color:var(--gold);display:block;}
   .stat-box .stat-lbl{font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);}
+
+  /* ── MINE BUTTON + ORBIT ZONE ── */
   .mine-btn-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:.8rem;}
-  .mine-button{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2a2f3e,#12151c);border:3px solid var(--border);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:4rem;transition:all .08s;position:relative;overflow:hidden;user-select:none;}
+  /* Orbit container — wide enough to hold orbiting miners */
+  .orbit-zone{position:relative;width:320px;height:320px;display:flex;align-items:center;justify-content:center;}
+  .mine-button{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2a2f3e,#12151c);border:3px solid var(--border);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:4rem;transition:all .08s;position:relative;overflow:hidden;user-select:none;z-index:2;}
   .mine-button::before{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(245,200,66,.08),transparent 70%);opacity:0;transition:opacity .15s;}
   .mine-button:hover::before{opacity:1;}
   .mine-button:active,.mine-button.clicking{transform:scale(.93);box-shadow:0 0 30px rgba(245,200,66,.2);border-color:var(--gold);}
@@ -92,10 +95,23 @@
   .mine-button.clicking .pick-icon{transform:rotate(-25deg) scale(1.1);}
   .mine-label{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.2em;color:var(--muted);}
   .mine-power{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);background:var(--surface);padding:.25rem .8rem;border-radius:4px;border:1px solid var(--border);}
+
+  /* Orbiting miners */
+  .orbit-miner{position:absolute;font-size:1.4rem;pointer-events:none;z-index:3;animation:none;}
+
+  /* Floating gem particles from auto-miners */
   .particle{position:fixed;pointer-events:none;font-size:1rem;font-family:'Share Tech Mono',monospace;font-weight:700;z-index:999;animation:particleUp .8s ease-out forwards;}
   @keyframes particleUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(.6)}}
   .gem-drop{position:fixed;pointer-events:none;font-size:1.5rem;z-index:999;animation:gemDrop .9s ease-out forwards;}
   @keyframes gemDrop{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-80px) scale(.4)}}
+
+  /* Miss flash */
+  .miss-text{position:fixed;pointer-events:none;font-size:.9rem;font-family:'Share Tech Mono',monospace;color:var(--muted);z-index:999;animation:missUp .7s ease-out forwards;}
+  @keyframes missUp{0%{opacity:.8;transform:translateY(0)}100%{opacity:0;transform:translateY(-40px)}}
+
+  /* AFK gem burst */
+  .afk-gem{position:fixed;pointer-events:none;font-size:1.3rem;z-index:998;animation:afkBurst 1.1s ease-out forwards;}
+  @keyframes afkBurst{0%{opacity:1;transform:translate(0,0) scale(1.1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}
 
   /* ── INVENTORY / SELL ── */
   .inventory-section{width:100%;max-width:480px;}
@@ -109,7 +125,6 @@
   .gem-chip:hover{transform:scale(1.05);}
   .gem-chip .chip-sell{font-size:.65rem;opacity:.7;letter-spacing:.05em;}
   .inv-empty{font-size:.8rem;color:var(--muted);font-style:italic;}
-  /* Sell value preview */
   .inv-value-row{font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--muted);margin-top:.4rem;}
   .inv-value-row span{color:var(--emerald);}
 
@@ -126,10 +141,10 @@
   .upgrade-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.9rem;margin-bottom:.6rem;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
   .upgrade-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(245,200,66,.05),transparent);opacity:0;transition:opacity .15s;}
   .upgrade-card:hover::before{opacity:1;}
-  .upgrade-card.can-afford{border-color:rgba(245,200,66,.3);}
+  .upgrade-card.can-afford{border-color:rgba(245,200,66,.4);box-shadow:0 0 8px rgba(245,200,66,.1);}
   .upgrade-card.can-afford:hover{border-color:var(--gold);transform:translateY(-1px);}
   .upgrade-card.maxed{border-color:var(--emerald);opacity:.7;cursor:default;}
-  .upgrade-card.cant-afford{opacity:.5;cursor:not-allowed;}
+  .upgrade-card.cant-afford{opacity:.45;cursor:not-allowed;}
   .upg-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem;}
   .upg-name{font-weight:700;font-size:.95rem;}
   .upg-level{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted);background:var(--border);padding:.1rem .4rem;border-radius:3px;}
@@ -137,6 +152,8 @@
   .upg-footer{display:flex;justify-content:space-between;align-items:center;}
   .upg-cost{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);}
   .upg-effect{font-size:.75rem;color:var(--emerald);}
+  /* AFK badge on upgrade cards */
+  .upg-afk-badge{font-size:.65rem;font-family:'Share Tech Mono',monospace;background:rgba(48,217,122,.15);color:var(--emerald);border:1px solid rgba(48,217,122,.3);border-radius:3px;padding:.1rem .4rem;margin-left:.4rem;}
 
   /* Player rows */
   .player-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.8rem;margin-bottom:.6rem;}
@@ -187,8 +204,6 @@
   .lb-name{flex:1;font-weight:700;text-align:left;}
   .lb-gems{font-family:'Share Tech Mono',monospace;color:var(--gold);}
   .lb-sub{font-size:.7rem;color:var(--muted);font-family:'Share Tech Mono',monospace;}
-
-  /* End game button in topbar */
   .topbar-end-btn{font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:.1em;background:linear-gradient(135deg,var(--ruby),#c02020);color:#fff;border:none;border-radius:6px;padding:.3rem .9rem;cursor:pointer;transition:all .15s;display:none;}
   .topbar-end-btn:hover{filter:brightness(1.15);}
 
@@ -198,6 +213,7 @@
     .upgrade-panel{border-left:none;border-top:1px solid var(--border);max-height:380px;}
     .mine-button{width:160px;height:160px;}
     .mine-button .pick-icon{font-size:3rem;}
+    .orbit-zone{width:260px;height:260px;}
   }
 </style>
 </head>
@@ -239,13 +255,10 @@
       <div class="lobby-code">Code: <span id="lobby-code-display">----</span></div>
     </div>
     <p class="copy-hint" onclick="copyCode()">📋 Click to copy code and share with friends</p>
-
-    <!-- Name change row — shown for all players in lobby -->
     <div class="lobby-name-row">
       <input type="text" id="lobby-name-input" placeholder="Change your name..." maxlength="16">
       <button onclick="updateLobbyName()">✏️ Set Name</button>
     </div>
-
     <div class="player-slots" id="lobby-slots"></div>
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
       Share the code above with up to 3 friends. Only the host can start the game.
@@ -272,11 +285,14 @@
         <div class="stat-box"><span class="stat-val" id="stat-clicks">0</span><span class="stat-lbl">⚒ Clicks</span></div>
       </div>
       <div class="mine-btn-wrap">
-        <button class="mine-button" id="mine-btn" onclick="doMine(event)">
-          <span class="pick-icon">⛏</span>
-        </button>
+        <!-- Orbit zone holds the button + orbiting miners -->
+        <div class="orbit-zone" id="orbit-zone">
+          <button class="mine-button" id="mine-btn" onclick="doMine(event)">
+            <span class="pick-icon">⛏</span>
+          </button>
+        </div>
         <div class="mine-label">Click to Mine</div>
-        <div class="mine-power" id="mine-power-display">+1 gem / click</div>
+        <div class="mine-power" id="mine-power-display">+1 gem / click (55% chance)</div>
       </div>
 
       <!-- Inventory + Sell -->
@@ -328,16 +344,21 @@ const GEM_TYPES = [
   {name:'Void Gem',  emoji:'🔮',value:1000,color:'#8040f0', rarity:.001},
 ];
 const UPGRADES = [
-  {id:'pickaxe', name:'Iron Pickaxe',   emoji:'⛏',  baseCost:50,   costMult:2.2,maxLevel:5,desc:'Swing harder. +1 gem/click per level.'},
-  {id:'gloves',  name:'Miner Gloves',   emoji:'🧤', baseCost:120,  costMult:2.5,maxLevel:4,desc:'Better grip. +0.5 gem/click per level.'},
-  {id:'helmet',  name:'Miner Helmet',   emoji:'⛑',  baseCost:200,  costMult:3.0,maxLevel:3,desc:'Reveals rare veins. +15% rare gem chance.'},
-  {id:'drill',   name:'Power Drill',    emoji:'🔩', baseCost:800,  costMult:3.5,maxLevel:3,desc:'Industrial might. +3 gems/click per level.'},
-  {id:'cart',    name:'Mine Cart',      emoji:'🛒', baseCost:1500, costMult:4.0,maxLevel:3,desc:'Auto-mines! +1 gem every second.'},
-  {id:'lamp',    name:'Crystal Lamp',   emoji:'🔦', baseCost:500,  costMult:2.8,maxLevel:4,desc:'Illuminates gems. +20% gem value per level.'},
-  {id:'tnt',     name:'Mining Charges', emoji:'💣', baseCost:2000, costMult:5.0,maxLevel:2,desc:'Blast radius! +8 gems/click per level.'},
-  {id:'robot',   name:'Mining Robot',   emoji:'🤖', baseCost:5000, costMult:6.0,maxLevel:2,desc:'Robotic assistant. +5 gems/sec auto-mine.'},
-  {id:'radar',   name:'Gem Radar',      emoji:'📡', baseCost:3000, costMult:4.5,maxLevel:3,desc:'Tracks veins. +25% rare gem find rate.'},
-  {id:'vault',   name:'Gold Vault',     emoji:'🏦', baseCost:4000, costMult:5.5,maxLevel:2,desc:'Secure profits. +30% gem sell value.'},
+  {id:'pickaxe',  name:'Iron Pickaxe',   emoji:'⛏',  baseCost:30,    costMult:2.8, maxLevel:6, type:'gemsPerClick',    desc:'Swing harder. +1 gem/click per level.'},
+  {id:'gloves',   name:'Miner Gloves',   emoji:'🧤', baseCost:80,    costMult:3.0, maxLevel:5, type:'gemsPerClick',    desc:'Better grip. +0.5 gem/click per level.'},
+  {id:'helmet',   name:'Miner Helmet',   emoji:'⛑',  baseCost:150,   costMult:3.2, maxLevel:4, type:'rarityBonus',     desc:'Reveals rare veins. +12% rare gem chance.'},
+  {id:'canary',   name:'Mine Canary',    emoji:'🐦', baseCost:400,   costMult:3.5, maxLevel:5, type:'autoMine',        gemEmoji:'🪨', desc:'Tweets when coal is near. +1 gem/sec AFK.'},
+  {id:'lamp',     name:'Crystal Lamp',   emoji:'🔦', baseCost:500,   costMult:3.2, maxLevel:5, type:'valueMultiplier', desc:'Illuminates gems. +20% gem value per level.'},
+  {id:'goblin',   name:'Goblin Miner',   emoji:'👺', baseCost:900,   costMult:4.0, maxLevel:5, type:'autoMine',        gemEmoji:'🔷', desc:'Sneaky little digger. +2 gems/sec AFK.'},
+  {id:'drill',    name:'Power Drill',    emoji:'🔩', baseCost:1200,  costMult:4.2, maxLevel:4, type:'gemsPerClick',    desc:'Industrial might. +3 gems/click per level.'},
+  {id:'dwarf',    name:'Dwarf Miner',    emoji:'🧙', baseCost:2500,  costMult:4.5, maxLevel:5, type:'autoMine',        gemEmoji:'🔴', desc:'Expert craftsman. +3 gems/sec AFK.'},
+  {id:'radar',    name:'Gem Radar',      emoji:'📡', baseCost:3000,  costMult:4.5, maxLevel:4, type:'rarityBonus',     desc:'Tracks rare veins. +20% rare gem find rate.'},
+  {id:'cart',     name:'Mine Cart',      emoji:'🛒', baseCost:4000,  costMult:4.8, maxLevel:4, type:'autoMine',        gemEmoji:'💚', desc:'Hauls loads automatically. +4 gems/sec AFK.'},
+  {id:'tnt',      name:'Mining Charges', emoji:'💣', baseCost:5000,  costMult:5.5, maxLevel:3, type:'gemsPerClick',    desc:'Blast radius! +8 gems/click per level.'},
+  {id:'vault',    name:'Gold Vault',     emoji:'🏦', baseCost:8000,  costMult:5.5, maxLevel:3, type:'valueMultiplier', desc:'Secure profits. +30% gem sell value.'},
+  {id:'robot',    name:'Mining Robot',   emoji:'🤖', baseCost:12000, costMult:6.0, maxLevel:4, type:'autoMine',        gemEmoji:'💎', desc:'Robotic miner. +6 gems/sec AFK.'},
+  {id:'dragon',   name:'Cave Dragon',    emoji:'🐉', baseCost:35000, costMult:7.0, maxLevel:3, type:'autoMine',        gemEmoji:'🌙', desc:'Ancient hoarding instincts. +12 gems/sec AFK.'},
+  {id:'void_rig', name:'Void Drill Rig', emoji:'🔮', baseCost:100000,costMult:8.5, maxLevel:2, type:'autoMine',        gemEmoji:'🔮', desc:'Drills into another dimension. +25 gems/sec AFK.'},
 ];
 const ACHIEVEMENTS = [
   {id:'first_click', name:'First Strike',     emoji:'⚒',  desc:'Make your first click.'},
@@ -348,12 +369,14 @@ const ACHIEVEMENTS = [
   {id:'gems_10000',  name:'Gem Mogul',        emoji:'💎', desc:'Mine 10,000 total gems.'},
   {id:'profit_1000', name:'Side Hustle',      emoji:'💵', desc:'Earn $1,000 in cash.'},
   {id:'profit_50000',name:'Gem Tycoon',       emoji:'💰', desc:'Earn $50,000 in cash.'},
+  {id:'profit_500k', name:'Mining Baron',     emoji:'🏆', desc:'Earn $500,000 in cash.'},
   {id:'diamond',     name:'Diamond Find',     emoji:'🤍', desc:'Find a Diamond.'},
   {id:'void',        name:'Beyond Darkness',  emoji:'🔮', desc:'Find a Void Gem.'},
   {id:'moonstone',   name:'Lunar Touch',      emoji:'🌙', desc:'Find a Moonstone.'},
   {id:'upgrade1',    name:'Tool Time',        emoji:'🔧', desc:'Buy your first upgrade.'},
   {id:'upgrade5',    name:'Workshop Ready',   emoji:'🔩', desc:'Buy 5 upgrades.'},
   {id:'auto_mine',   name:'Automation!',      emoji:'🤖', desc:'Unlock auto-mining.'},
+  {id:'auto_mine_20',name:'Factory Floor',    emoji:'🏭', desc:'Reach 20 gems/sec auto-mine.'},
 ];
 
 // ─── State ─────────────────────────────────────────────────────────────────────
@@ -364,6 +387,8 @@ let lobbyCode = null;
 let selfState = null;
 let allPlayers = [];
 let currentTab = 'upgrades';
+// Track which orbiting miner elements exist
+const orbitMiners = {}; // upgradeId -> DOM element
 
 // ─── Socket setup ──────────────────────────────────────────────────────────────
 function initSocket() {
@@ -375,13 +400,11 @@ function initSocket() {
     document.getElementById('btn-create').disabled = false;
     document.getElementById('btn-join').disabled = false;
   });
-
   socket.on('disconnect', () => {
     setBadge('disconnected', '● Offline');
     document.getElementById('btn-create').disabled = true;
     document.getElementById('btn-join').disabled = true;
   });
-
   socket.on('connect_error', () => setBadge('connecting', 'Connecting...'));
 
   socket.on('lobby:state', (data) => {
@@ -414,6 +437,7 @@ function initSocket() {
   socket.on('player:self', (state) => {
     selfState = state;
     updateStats();
+    syncOrbitMiners();
     if (currentTab === 'upgrades') renderUpgrades();
     if (currentTab === 'achievements') renderAchievements();
   });
@@ -425,7 +449,12 @@ function initSocket() {
     if (currentTab === 'achievements') renderAchievements();
   });
 
+  socket.on('automine:drops', ({ drops }) => {
+    spawnAfkGems(drops);
+  });
+
   socket.on('game:ended', ({ results }) => {
+    clearOrbitMiners();
     showEndScreen(results);
   });
 }
@@ -440,7 +469,6 @@ function setBadge(cls, text) {
 function getPlayerName() {
   return document.getElementById('player-name').value.trim() || 'Miner_' + Math.floor(Math.random()*9999);
 }
-
 function createLobby() {
   socket.emit('lobby:create', { playerName: getPlayerName() }, (res) => {
     if (!res.ok) { showToast('❌','Error', res.error); return; }
@@ -453,7 +481,6 @@ function createLobby() {
     showScreen('lobby-screen');
   });
 }
-
 function joinLobby() {
   const code = document.getElementById('join-code').value.trim().toUpperCase();
   const err = document.getElementById('join-error');
@@ -470,31 +497,26 @@ function joinLobby() {
     showScreen('lobby-screen');
   });
 }
-
 function updateLobbyName() {
   const newName = document.getElementById('lobby-name-input').value.trim();
   if (!newName) return;
   socket.emit('lobby:rename', { name: newName }, (res) => {
     if (res && res.ok) {
       if (selfState) selfState.name = newName;
-      showToast('✏️', 'Name Updated', 'You are now: ' + newName);
+      showToast('✏️','Name Updated','You are now: ' + newName);
     }
   });
 }
-
-// Allow Enter key to set name
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lobby-name-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') updateLobbyName();
   });
 });
-
 function startGame() {
   socket.emit('game:start', {}, (res) => {
     if (res && !res.ok) showToast('❌','Error', res.error);
   });
 }
-
 function confirmEndGame() {
   if (confirm('End the game for everyone? Final scores will be tallied.')) {
     socket.emit('game:end', {}, (res) => {
@@ -502,7 +524,6 @@ function confirmEndGame() {
     });
   }
 }
-
 function copyCode() {
   navigator.clipboard.writeText(lobbyCode).then(() => showToast('📋','Copied!','Share this code with friends: ' + lobbyCode));
 }
@@ -538,8 +559,14 @@ function doMine(e) {
     if (!res || !res.ok) return;
     selfState = res.self;
     updateStats();
-    spawnClickParticle(e, `+${res.gemsAdded}`);
-    res.drops?.forEach(d => spawnGemParticle(e, d.emoji));
+    syncOrbitMiners();
+
+    if (res.miss) {
+      spawnMissParticle(e);
+    } else {
+      spawnClickParticle(e, `+${res.gemsAdded}`);
+      res.drops?.forEach(d => spawnGemParticle(e, d.emoji));
+    }
     if (currentTab === 'upgrades') renderUpgrades();
   });
 }
@@ -552,7 +579,6 @@ function spawnClickParticle(e, text) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 900);
 }
-
 function spawnGemParticle(e, emoji) {
   const el = document.createElement('div');
   el.className = 'gem-drop';
@@ -561,6 +587,120 @@ function spawnGemParticle(e, emoji) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1000);
 }
+function spawnMissParticle(e) {
+  const el = document.createElement('div');
+  el.className = 'miss-text';
+  el.textContent = '• miss •';
+  el.style.cssText = `left:${e.clientX-20}px;top:${e.clientY-10}px`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+// AFK gem burst around the orbit zone
+function spawnAfkGems(drops) {
+  const zone = document.getElementById('orbit-zone');
+  if (!zone) return;
+  const rect = zone.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const toShow = drops.slice(0, 6); // max 6 per tick so it doesn't go crazy
+  toShow.forEach((d, i) => {
+    const angle = (Math.random() * Math.PI * 2);
+    const dist = 60 + Math.random() * 60;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist - 40;
+    const el = document.createElement('div');
+    el.className = 'afk-gem';
+    el.textContent = d.emoji;
+    el.style.cssText = `left:${cx + (Math.random()-.5)*20}px;top:${cy + (Math.random()-.5)*20}px;--dx:${dx}px;--dy:${dy}px;animation-delay:${i*60}ms`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  });
+}
+
+// ─── Orbit Miners ──────────────────────────────────────────────────────────────
+// Each purchased AFK miner gets a little emoji orbiting the mine button.
+// Multiple levels = multiple orbiters (capped at 5 per type to avoid chaos).
+function syncOrbitMiners() {
+  if (!selfState) return;
+  const zone = document.getElementById('orbit-zone');
+  if (!zone) return;
+
+  // Build desired list of all active afk miners with their emoji
+  const desired = []; // [{emoji, id}]
+  UPGRADES.forEach(u => {
+    if (u.type !== 'autoMine') return;
+    const lvl = selfState.upgradeLevels?.[u.id] || 0;
+    if (lvl === 0) return;
+    // Show up to min(lvl,3) orbiters per upgrade
+    const count = Math.min(lvl, 3);
+    for (let i = 0; i < count; i++) {
+      desired.push({ key: u.id + '_' + i, emoji: u.emoji });
+    }
+  });
+
+  // Remove old ones no longer needed
+  Object.keys(orbitMiners).forEach(key => {
+    if (!desired.find(d => d.key === key)) {
+      orbitMiners[key]?.remove();
+      delete orbitMiners[key];
+    }
+  });
+
+  // Add new ones
+  const total = desired.length;
+  desired.forEach((d, idx) => {
+    if (orbitMiners[d.key]) return; // already exists
+    const el = document.createElement('div');
+    el.className = 'orbit-miner';
+    el.textContent = d.emoji;
+    el.dataset.idx = idx;
+    el.dataset.total = total;
+    zone.appendChild(el);
+    orbitMiners[d.key] = el;
+  });
+
+  // Update all positions/animations based on current total
+  const allKeys = Object.keys(orbitMiners);
+  const n = allKeys.length;
+  allKeys.forEach((key, i) => {
+    const el = orbitMiners[key];
+    if (!el) return;
+    const radius = 115 + (i % 2) * 15; // slight alternation for layering
+    const speed = 4 + (i * 0.3); // each orbiter slightly different speed
+    const offset = (i / n) * 360;
+    el.style.cssText = `
+      position:absolute;
+      font-size:1.4rem;
+      pointer-events:none;
+      z-index:3;
+      animation: orbit${i % 3 === 0 ? 'CW' : 'CCW'} ${speed}s linear infinite;
+      --r:${radius}px;
+      --offset:${offset}deg;
+    `;
+  });
+}
+
+function clearOrbitMiners() {
+  Object.values(orbitMiners).forEach(el => el?.remove());
+  Object.keys(orbitMiners).forEach(k => delete orbitMiners[k]);
+}
+
+// Inject orbit keyframes dynamically
+(function injectOrbitStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes orbitCW {
+      from { transform: rotate(calc(var(--offset))) translateX(var(--r)) rotate(calc(-1 * var(--offset))); }
+      to   { transform: rotate(calc(var(--offset) + 360deg)) translateX(var(--r)) rotate(calc(-1 * var(--offset) - 360deg)); }
+    }
+    @keyframes orbitCCW {
+      from { transform: rotate(calc(var(--offset))) translateX(var(--r)) rotate(calc(-1 * var(--offset))); }
+      to   { transform: rotate(calc(var(--offset) - 360deg)) translateX(var(--r)) rotate(calc(-1 * var(--offset) + 360deg)); }
+    }
+  `;
+  document.head.appendChild(style);
+})();
 
 // ─── Sell ──────────────────────────────────────────────────────────────────────
 function sellGem(gemName) {
@@ -573,20 +713,15 @@ function sellGem(gemName) {
     if (currentTab === 'upgrades') renderUpgrades();
   });
 }
-
 function sellAll() {
   if (!selfState?.inventory) return;
   const gemNames = Object.keys(selfState.inventory).filter(n => (selfState.inventory[n] || 0) > 0);
   if (!gemNames.length) return;
-
   let remaining = gemNames.length;
   let totalEarned = 0;
   gemNames.forEach(gemName => {
     socket.emit('game:sell', { gemName, quantity: -1 }, (res) => {
-      if (res?.ok) {
-        selfState = res.self;
-        totalEarned += res.earned;
-      }
+      if (res?.ok) { selfState = res.self; totalEarned += res.earned; }
       remaining--;
       if (remaining === 0) {
         showToast('💰','All Gems Sold!', `+$${totalEarned.toLocaleString()} total`);
@@ -606,17 +741,37 @@ function getUpgradeCost(u) {
 function renderUpgrades() {
   const container = document.getElementById('panel-upgrades');
   container.innerHTML = '';
-  UPGRADES.forEach(u => {
+  const cash = selfState?.profit || 0;
+
+  // Sort: affordable first (by cost ASC), then unaffordable (by cost ASC), maxed last
+  const withMeta = UPGRADES.map(u => {
     const lvl = selfState?.upgradeLevels?.[u.id] || 0;
     const maxed = lvl >= u.maxLevel;
-    const cost = maxed ? 0 : getUpgradeCost(u);
-    const canAfford = !maxed && (selfState?.profit || 0) >= cost;
+    const cost = maxed ? Infinity : getUpgradeCost(u);
+    const canAfford = !maxed && cash >= cost;
+    return { u, lvl, maxed, cost, canAfford };
+  });
+  withMeta.sort((a, b) => {
+    if (a.maxed !== b.maxed) return a.maxed ? 1 : -1; // maxed to bottom
+    if (a.canAfford !== b.canAfford) return a.canAfford ? -1 : 1; // affordable to top
+    return a.cost - b.cost; // cheapest first within group
+  });
+
+  withMeta.forEach(({ u, lvl, maxed, cost, canAfford }) => {
     const card = document.createElement('div');
     card.className = 'upgrade-card ' + (maxed ? 'maxed' : canAfford ? 'can-afford' : 'cant-afford');
-    card.innerHTML = `<div class="upg-header"><div class="upg-name">${u.emoji} ${u.name}</div><div class="upg-level">${lvl}/${u.maxLevel}</div></div>
+    const isAfk = u.type === 'autoMine';
+    const afkBadge = isAfk ? `<span class="upg-afk-badge">AFK ${u.gemEmoji}</span>` : '';
+    card.innerHTML = `
+      <div class="upg-header">
+        <div class="upg-name">${u.emoji} ${u.name}${afkBadge}</div>
+        <div class="upg-level">${lvl}/${u.maxLevel}</div>
+      </div>
       <div class="upg-desc">${u.desc}</div>
-      <div class="upg-footer"><div class="upg-cost">${maxed?'✅ MAXED':'$'+cost.toLocaleString()}</div>
-      <div class="upg-effect">${maxed?'Max level':canAfford?'Click to buy':'Sell gems first'}</div></div>`;
+      <div class="upg-footer">
+        <div class="upg-cost">${maxed ? '✅ MAXED' : '$' + cost.toLocaleString()}</div>
+        <div class="upg-effect">${maxed ? 'Max level' : canAfford ? '▶ Click to buy' : 'Need more cash'}</div>
+      </div>`;
     if (!maxed && canAfford) card.onclick = () => buyUpgrade(u.id);
     container.appendChild(card);
   });
@@ -629,6 +784,7 @@ function buyUpgrade(upgradeId) {
     const u = UPGRADES.find(x => x.id === upgradeId);
     showToast(u.emoji, 'Upgraded!', `${u.name} is now level ${selfState.upgradeLevels[upgradeId]}`);
     updateStats();
+    syncOrbitMiners();
     renderUpgrades();
   });
 }
@@ -639,9 +795,10 @@ function updateStats() {
   document.getElementById('stat-gems').textContent   = selfState.totalGems.toLocaleString();
   document.getElementById('stat-profit').textContent = '$' + selfState.profit.toLocaleString();
   document.getElementById('stat-clicks').textContent = selfState.totalClicks.toLocaleString();
-  const gpc = (selfState.gemsPerClick||1).toFixed(1);
-  const auto = selfState.autoMine > 0 ? ` + ${selfState.autoMine}/s` : '';
-  document.getElementById('mine-power-display').textContent = `+${gpc} gem/click${auto}`;
+  const gpc = (selfState.gemsPerClick || 1).toFixed(1);
+  const chance = Math.round((selfState.clickChance || 0.55) * 100);
+  const auto = selfState.autoMine > 0 ? ` + ${selfState.autoMine}/s AFK` : '';
+  document.getElementById('mine-power-display').textContent = `+${gpc}/click (${chance}%)${auto}`;
   renderInventory();
 }
 
@@ -660,11 +817,9 @@ function renderInventory() {
   if (!selfState?.inventory) return;
   const container = document.getElementById('gem-inventory');
   container.innerHTML = '';
-
   const hasGems = Object.values(selfState.inventory).some(v => v > 0);
   const sellAllBtn = document.getElementById('sell-all-btn');
   sellAllBtn.disabled = !hasGems;
-
   const totalVal = calcInventoryValueLocal();
   const valRow = document.getElementById('inv-value-row');
   if (hasGems) {
@@ -673,7 +828,6 @@ function renderInventory() {
   } else {
     valRow.style.display = 'none';
   }
-
   if (!hasGems) {
     const empty = document.createElement('div');
     empty.className = 'inv-empty';
@@ -681,14 +835,12 @@ function renderInventory() {
     container.appendChild(empty);
     return;
   }
-
   GEM_TYPES.forEach(g => {
     const count = selfState.inventory[g.name] || 0;
     if (!count) return;
     const mult = selfState.valueMultiplier || 1;
     const perGem = Math.floor(g.value * mult);
     const total = count * perGem;
-
     const chip = document.createElement('div');
     chip.className = 'gem-chip';
     chip.style.cssText = `background:${g.color}22;border-color:${g.color}55;color:${g.color};`;
@@ -781,12 +933,11 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-
 function goTitle() {
   lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+  clearOrbitMiners();
   showScreen('title-screen');
 }
-
 function showToast(icon, title, msg) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
