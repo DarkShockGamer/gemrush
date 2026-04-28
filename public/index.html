@@ -775,6 +775,7 @@ function stopClientTimer() {
   const el = document.getElementById('game-timer');
   if (el) el.style.display = 'none';
 }
+function renderLobbySlots(players) {
   const container = document.getElementById('lobby-slots');
   container.innerHTML = '';
   const AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
@@ -1278,4 +1279,4 @@ function showToast(icon, title, msg) {
 initSocket();
 </script>
 </body>
-</html>
+  </html>
