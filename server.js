@@ -513,6 +513,23 @@ io.on('connection', (socket) => {
     else broadcastGameState(lobby);
   });
 
+  socket.on('lobby:end', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can end the lobby.' });
+    if (lobby.status === 'playing') {
+      clearInterval(lobby.timer);
+      if (lobby.timedEnd) clearTimeout(lobby.timedEnd);
+    }
+    io.to(lobby.code).emit('lobby:closed', { reason: 'Host ended the lobby.' });
+    // Clean up sessions for all players in this lobby
+    for (const [token, sess] of sessions.entries()) {
+      if (sess.lobbyCode === lobby.code) sessions.delete(token);
+    }
+    lobbies.delete(lobby.code);
+    callback?.({ ok: true });
+  });
+
   socket.on('lobby:setPublic', ({ isPublic }, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby) return callback?.({ ok: false });
