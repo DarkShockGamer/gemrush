@@ -601,6 +601,10 @@
           <span id="inv-cap-used">0</span>/<span id="inv-cap-max">50</span> gems
           <span id="inv-cap-warn"></span>
         </div>
+        <!-- Status indicators -->
+        <div id="gem-tax-indicator" style="display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(232,64,64,.18);border:1px solid var(--ruby);border-radius:6px;font-size:.78rem;color:var(--ruby);font-family:'Share Tech Mono',monospace;">💸 GEM TAX ACTIVE — 15% of your next sell will be stolen!</div>
+        <div id="shield-indicator" style="display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(64,144,245,.18);border:1px solid var(--sapphire);border-radius:6px;font-size:.78rem;color:var(--sapphire);font-family:'Share Tech Mono',monospace;">🛡 SABOTAGE SHIELD ACTIVE — next attack will be blocked!</div>
+        <div id="bulk-sell-countdown" style="display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(48,217,122,.12);border:1px solid rgba(48,217,122,.4);border-radius:6px;font-size:.78rem;color:var(--emerald);font-family:'Share Tech Mono',monospace;"></div>
       </div>
     </div>
     <div class="upgrade-panel" id="upgrade-panel">
@@ -682,9 +686,11 @@ const UPGRADES = [
   {id:'gem_magnet', name:'Gem Magnet',        emoji:'🧲', baseCost:60000,  costMult:7.0,  maxLevel:3,  type:'rarityBonus',     desc:'Attracts only the finest. +35% rare gem rate.'},
   {id:'time_warp',  name:'Time Warp Engine',  emoji:'⏱',  baseCost:80000,  costMult:7.5,  maxLevel:2,  type:'autoMine',        gemEmoji:'🔷', desc:'Mines gems across time. +20 gems/sec AFK.'},
   {id:'void_rig',   name:'Void Drill Rig',    emoji:'🔮', baseCost:100000, costMult:8.5,  maxLevel:2,  type:'autoMine',        gemEmoji:'🔮', desc:'Drills into another dimension. +25 gems/sec AFK.'},
-  {id:'gem_forge',  name:'Gem Forge',         emoji:'⚗️',  baseCost:150000, costMult:8.0,  maxLevel:2,  type:'valueMultiplier', desc:'Refine raw gems. +100% sell value per level.'},
-  {id:'singularity',name:'Mining Singularity',emoji:'🌀', baseCost:500000, costMult:10.0, maxLevel:1,  type:'autoMine',        gemEmoji:'🔮', desc:'A point of infinite density. +100 gems/sec AFK.'},
-  {id:'satchel',    name:'Gem Satchel',       emoji:'🎒', baseCost:500,    costMult:4.5,  maxLevel:6,  type:'inventoryCap',    desc:'Doubles your bag capacity each upgrade. Starts at 50 slots.'},
+  {id:'gem_forge',    name:'Gem Forge',         emoji:'⚗️',  baseCost:150000, costMult:8.0,  maxLevel:2,  type:'valueMultiplier', desc:'Refine raw gems. +100% sell value per level.'},
+  {id:'singularity',  name:'Mining Singularity', emoji:'🌀', baseCost:500000, costMult:10.0, maxLevel:1,  type:'autoMine',        gemEmoji:'🔮', desc:'A point of infinite density. +100 gems/sec AFK.'},
+  {id:'satchel',      name:'Gem Satchel',        emoji:'🎒', baseCost:500,    costMult:4.5,  maxLevel:6,  type:'inventoryCap',    desc:'Doubles your bag capacity each upgrade. Starts at 50 slots.'},
+  {id:'gem_insurance',name:'Gem Insurance',      emoji:'🛡', baseCost:2500,   costMult:1.0,  maxLevel:1,  type:'sabotageShield',  desc:'Blocks the next sabotage you receive. One-time use — recharge by repurchasing.'},
+  {id:'bulk_sell',    name:'Bulk Sell',           emoji:'📦', baseCost:3500,   costMult:1.0,  maxLevel:1,  type:'bulkSell',        desc:'Auto-sells your inventory every 30 seconds at 90% value. Great for AFK play.'},
 ];
 const ACHIEVEMENTS = [
   {id:'first_click',   name:'First Strike',         emoji:'⚒',  desc:'Make your first click.'},
@@ -719,9 +725,11 @@ const ACHIEVEMENTS = [
 ];
 
 const SABOTAGES = [
-  { id: 'freeze',      name: 'Freeze',       emoji: '🧊', baseCost: 300,  desc: 'Halts their auto-miners for 15 seconds.' },
-  { id: 'pickpocket',  name: 'Pickpocket',   emoji: '🪤', baseCost: 500,  desc: 'Steals 8% of their held inventory gems.' },
-  { id: 'cursed_vein', name: 'Cursed Vein',  emoji: '☠️', baseCost: 800,  desc: 'Their next 10 clicks are guaranteed misses.' },
+  { id: 'freeze',       name: 'Freeze',       emoji: '🧊', baseCost: 300,  desc: 'Halts their auto-miners for 15 seconds.' },
+  { id: 'pickpocket',   name: 'Pickpocket',   emoji: '🪤', baseCost: 500,  desc: 'Steals 8% of their held inventory gems.' },
+  { id: 'cursed_vein',  name: 'Cursed Vein',  emoji: '☠️', baseCost: 800,  desc: 'Their next 10 clicks are guaranteed misses.' },
+  { id: 'gem_tax',      name: 'Gem Tax',      emoji: '💸', baseCost: 650,  desc: 'Steals 15% of the value of their next sell. Punishes hoarding.' },
+  { id: 'pickaxe_jam',  name: 'Pickaxe Jam',  emoji: '🔧', baseCost: 450,  desc: 'Halves their gems per click for 20 seconds. Counters click-heavy players.' },
 ];
 function sabotageCostClient(sab, timesUsed) {
   return Math.floor(sab.baseCost * Math.pow(1 + timesUsed * 0.35, 2));
@@ -747,6 +755,8 @@ let sabCooldownInterval = null; // ticks the sabotage cooldown display
 let frozenOverlayEl = null;
 let frozenBannerEl = null;
 let frozenCheckInterval = null;
+let jamBannerEl = null;
+let jamCheckInterval = null;
 // Track which orbiting miner elements exist
 const orbitMiners = {}; // upgradeId -> DOM element
 
@@ -1047,7 +1057,7 @@ function initSocket() {
     lobbyCode = code;
     // Reset game state
     selfState = null; allPlayers = []; myLastRank = null;
-    stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); clearOrbitMiners();
+    stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); removeJamBanner(); clearOrbitMiners();
     document.getElementById('lobby-code-display').textContent = lobbyCode;
     document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
     document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
@@ -1123,6 +1133,20 @@ function initSocket() {
     } else {
       removeFrozenOverlay();
     }
+    // Pickaxe jam banner
+    if (state.pickaxeJamUntil && Date.now() < state.pickaxeJamUntil) {
+      showJamBanner(state.pickaxeJamUntil);
+    } else {
+      removeJamBanner();
+    }
+    // Gem tax indicator
+    const taxIndicator = document.getElementById('gem-tax-indicator');
+    if (taxIndicator) taxIndicator.style.display = state.gemTaxPending > 0 ? 'block' : 'none';
+    // Shield indicator
+    const shieldIndicator = document.getElementById('shield-indicator');
+    if (shieldIndicator) shieldIndicator.style.display = state.sabotageShield ? 'block' : 'none';
+    // Bulk sell countdown
+    updateBulkSellCountdown(state);
   });
 
   socket.on('achievements:unlocked', (list) => {
@@ -1158,6 +1182,24 @@ function initSocket() {
   socket.on('sabotage:hit', (data) => {
     showSabotageHit(data);
     // The server also emits player:self which will update selfState
+  });
+
+  socket.on('sabotage:blocked', (data) => {
+    AudioEngine.sell(); // positive ding
+    haptic([30, 20, 30]);
+    showToast('🛡', 'Sabotage Blocked!', `${data.attackerAvatar} ${data.attackerName}'s ${data.sabotageId.replace('_',' ')} was absorbed by your Gem Insurance!`);
+    // Shield is used up — UI will update via player:self
+  });
+
+  socket.on('sabotage:tax_triggered', ({ earned }) => {
+    showToast('💸', 'Gem Tax Collected!', `-$${earned.toLocaleString()} taken by the taxman!`);
+  });
+
+  socket.on('bulksell:triggered', ({ earned }) => {
+    AudioEngine.sell();
+    haptic([15, 10, 15]);
+    showToast('📦', 'Bulk Sell!', `Auto-sold inventory for $${earned.toLocaleString()} (90% value)`);
+    if (currentTab === 'upgrades') renderUpgrades();
   });
 
   socket.on('game:rareFind', (data) => {
@@ -1786,7 +1828,9 @@ function renderUpgrades() {
   // Sort: affordable first (by cost ASC), then unaffordable (by cost ASC), maxed last
   const withMeta = UPGRADES.map(u => {
     const lvl = selfState?.upgradeLevels?.[u.id] || 0;
-    const maxed = lvl >= u.maxLevel;
+    // sabotageShield can be repurchased when maxed but shield is not active
+    const shieldConsumed = u.type === 'sabotageShield' && lvl >= u.maxLevel && !selfState?.sabotageShield;
+    const maxed = lvl >= u.maxLevel && !shieldConsumed;
     const cost = maxed ? Infinity : getUpgradeCost(u);
     const canAfford = !maxed && cash >= cost;
     return { u, lvl, maxed, cost, canAfford };
@@ -1802,14 +1846,24 @@ function renderUpgrades() {
     card.className = 'upgrade-card ' + (maxed ? 'maxed' : canAfford ? 'can-afford' : 'cant-afford');
     const isAfk = u.type === 'autoMine';
     const isCap = u.type === 'inventoryCap';
+    const isShield = u.type === 'sabotageShield';
+    const isBulkSell = u.type === 'bulkSell';
+    const shieldActive = isShield && selfState?.sabotageShield;
     const afkBadge = isAfk ? `<span class="upg-afk-badge">AFK ${u.gemEmoji}</span>` : '';
     const capBadge = isCap ? `<span class="upg-cap-badge">🎒 CAP</span>` : '';
+    const shieldBadge = isShield ? `<span class="upg-afk-badge" style="background:rgba(64,144,245,.15);color:var(--sapphire);border-color:rgba(64,144,245,.3)">🛡 SHIELD${shieldActive?' ✓':''}</span>` : '';
+    const bulkBadge = isBulkSell ? `<span class="upg-afk-badge" style="background:rgba(48,217,122,.15);color:var(--emerald);border-color:rgba(48,217,122,.3)">📦 AUTO</span>` : '';
+    const shieldDesc = isShield
+      ? ` ${shieldActive ? '<strong style="color:var(--sapphire)">Shield is ACTIVE — ready to block!</strong>' : 'Shield is consumed. Repurchase to recharge.'}`
+      : '';
+    const bulkDesc = isBulkSell && selfState?.hasBulkSell
+      ? ` <strong style="color:var(--emerald)">Active — selling every 30s at 90% value.</strong>` : '';
     card.innerHTML = `
       <div class="upg-header">
-        <div class="upg-name">${u.emoji} ${u.name}${afkBadge}${capBadge}</div>
+        <div class="upg-name">${u.emoji} ${u.name}${afkBadge}${capBadge}${shieldBadge}${bulkBadge}</div>
         <div class="upg-level">${lvl}/${u.maxLevel}</div>
       </div>
-      <div class="upg-desc">${u.desc}${isCap ? ` Current: ${(selfState?.inventoryCap||50)} → Next: ${(selfState?.inventoryCap||50)*2} slots.` : ''}</div>
+      <div class="upg-desc">${u.desc}${isCap ? ` Current: ${(selfState?.inventoryCap||50)} → Next: ${(selfState?.inventoryCap||50)*2} slots.` : ''}${shieldDesc}${bulkDesc}</div>
       <div class="upg-footer">
         <div class="upg-cost">${maxed ? '✅ MAXED' : '$' + cost.toLocaleString()}</div>
         <div class="upg-effect">${maxed ? 'Max level' : canAfford ? '▶ Click to buy' : 'Need more cash'}</div>
@@ -2134,6 +2188,7 @@ function goTitle() {
   stopClientTimer();
   stopSabCooldownTick();
   removeFrozenOverlay();
+  removeJamBanner();
   clearSession();
   clearOrbitMiners();
   if (endCountdownInterval) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
@@ -2263,16 +2318,46 @@ function removeFrozenOverlay() {
   if (frozenCheckInterval) { clearInterval(frozenCheckInterval); frozenCheckInterval = null; }
 }
 
+function showJamBanner(jamUntil) {
+  if (jamBannerEl) return;
+  jamBannerEl = document.createElement('div');
+  jamBannerEl.className = 'frozen-banner';
+  jamBannerEl.style.background = 'rgba(232,100,40,.9)';
+  jamBannerEl.textContent = '🔧 PICKAXE JAMMED! (½ gems/click)';
+  document.body.appendChild(jamBannerEl);
+  jamCheckInterval = setInterval(() => {
+    if (Date.now() >= jamUntil) removeJamBanner();
+  }, 500);
+}
+function removeJamBanner() {
+  if (jamBannerEl) { jamBannerEl.remove(); jamBannerEl = null; }
+  if (jamCheckInterval) { clearInterval(jamCheckInterval); jamCheckInterval = null; }
+}
+
+function updateBulkSellCountdown(state) {
+  const el = document.getElementById('bulk-sell-countdown');
+  if (!el) return;
+  if (state.hasBulkSell && state.bulkSellNextAt) {
+    const secsLeft = Math.max(0, Math.ceil((state.bulkSellNextAt - Date.now()) / 1000));
+    el.textContent = `📦 Auto-sell in ${secsLeft}s`;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 // ─── Sabotage hit notification ──────────────────────────────────────────────────
 function showSabotageHit(data) {
   AudioEngine.sabotageHit();
   haptic([100, 50, 100, 50, 200]);
   const msgs = {
-    freeze:      `🧊 Your auto-miners are frozen for 15 seconds!`,
-    pickpocket:  `🪤 ${data.stolen ?? 'Some'} gems were stolen from your inventory!`,
-    cursed_vein: `☠️ Your next 10 clicks will miss!`,
+    freeze:       `🧊 Your auto-miners are frozen for 15 seconds!`,
+    pickpocket:   `🪤 ${data.stolen ?? 'Some'} gems were stolen from your inventory!`,
+    cursed_vein:  `☠️ Your next 10 clicks will miss!`,
+    gem_tax:      `💸 15% of your next sell will be stolen! Sell wisely!`,
+    pickaxe_jam:  `🔧 Your pickaxe is jammed! Gems/click halved for 20 seconds!`,
   };
-  const icons = { freeze:'🧊', pickpocket:'🪤', cursed_vein:'☠️' };
+  const icons = { freeze:'🧊', pickpocket:'🪤', cursed_vein:'☠️', gem_tax:'💸', pickaxe_jam:'🔧' };
   const overlay = document.createElement('div');
   overlay.className = 'sab-hit-overlay';
   overlay.innerHTML = `<div class="sab-hit-box">
