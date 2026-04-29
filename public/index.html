@@ -531,6 +531,7 @@
     </div>
     <div class="lobby-actions">
       <button class="btn btn-outline" id="leave-lobby-btn" onclick="leaveLobby()" style="flex:0 0 auto;width:auto;padding-left:1.2rem;padding-right:1.2rem;display:none;">🚪 Leave</button>
+      <button class="btn" id="end-lobby-btn" onclick="confirmEndLobby()" style="display:none;flex:0 0 auto;width:auto;padding-left:1.2rem;padding-right:1.2rem;background:linear-gradient(135deg,var(--ruby),#c02020);color:#fff;border:none;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;border-radius:8px;cursor:pointer;">✕ End Lobby</button>
       <button class="btn btn-gold" id="start-btn" onclick="startGame()">▶ Start Game</button>
     </div>
   </div>
@@ -572,6 +573,7 @@
         </div>
         <div class="mine-label">Click to Mine</div>
         <div class="mine-power" id="mine-power-display">+1 gem / click (55% chance)</div>
+        <div style="font-size:.7rem;color:var(--muted);letter-spacing:.08em;opacity:.6;"><kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;">Space</kbd> Mine &nbsp; <kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;">S</kbd> Sell All</div>
       </div>
 
       <!-- Inventory + Sell -->
@@ -968,6 +970,7 @@ function initSocket() {
           document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
           document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
           document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
+          document.getElementById('end-lobby-btn').style.display = isHost ? 'block' : 'none';
           showScreen('lobby-screen');
           showToast('🔄', 'Reconnected!', 'Back in the lobby.');
         }
@@ -994,6 +997,7 @@ function initSocket() {
     document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
     document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
     document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
+    document.getElementById('end-lobby-btn').style.display = isHost ? 'block' : 'none';
     // Public toggle state
     if (data.isPublic !== undefined) {
       lobbyIsPublic = data.isPublic;
@@ -1010,6 +1014,7 @@ function initSocket() {
       document.getElementById('leave-game-btn').style.display = 'none';
       document.getElementById('host-controls').style.display = 'block';
       document.getElementById('leave-lobby-btn').style.display = 'none';
+      document.getElementById('end-lobby-btn').style.display = 'block';
       showToast('👑','You are now the host!','The previous host disconnected.');
     }
   });
@@ -1038,6 +1043,7 @@ function initSocket() {
     document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
     document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
     document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+    document.getElementById('end-lobby-btn').style.display = isHost ? 'block' : 'none';
     document.getElementById('end-game-btn').style.display = 'none';
     document.getElementById('leave-game-btn').style.display = 'none';
     updateLobbyModeBadge(mode, duration);
@@ -1118,6 +1124,16 @@ function initSocket() {
   socket.on('game:rareFind', (data) => {
     showRareFindBanner(data);
   });
+
+  socket.on('lobby:closed', ({ reason }) => {
+    lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+    sessionToken = null;
+    stopClientTimer?.(); stopSabCooldownTick?.(); removeFrozenOverlay?.(); clearOrbitMiners?.();
+    clearSession();
+    showScreen('title-screen');
+    showHomeCard?.();
+    showToast('🚪', 'Lobby Closed', reason || 'The host ended the lobby.');
+  });
 }
 
 function setBadge(cls, text) {
@@ -1147,6 +1163,7 @@ function createLobby() {
     document.getElementById('start-btn').style.display = 'block';
     document.getElementById('host-controls').style.display = 'block';
     document.getElementById('leave-lobby-btn').style.display = 'none';
+    document.getElementById('end-lobby-btn').style.display = 'block';
     const toggleBtn = document.getElementById('toggle-public-btn');
     if (toggleBtn) toggleBtn.textContent = '🌐 Make Public';
     updateLobbyModeBadge(res.mode, res.duration);
@@ -1172,6 +1189,7 @@ function joinLobby() {
     document.getElementById('start-btn').style.display = 'none';
     document.getElementById('host-controls').style.display = 'none';
     document.getElementById('leave-lobby-btn').style.display = 'block';
+    document.getElementById('end-lobby-btn').style.display = 'none';
     updateLobbyModeBadge(res.mode, res.duration);
     showScreen('lobby-screen');
     renderAvatarPicker();
@@ -1191,11 +1209,36 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lobby-name-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') updateLobbyName();
   });
+
+  // Keyboard shortcuts (only active during gameplay)
+  document.addEventListener('keydown', e => {
+    // Ignore if typing in an input/textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    const gameVisible = document.getElementById('game-screen')?.style.display !== 'none'
+      && document.getElementById('game-screen')?.classList.contains('active');
+    if (!gameVisible) return;
+
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      const mineBtn = document.getElementById('mine-btn');
+      if (mineBtn && !mineBtn.disabled) mineBtn.click();
+    } else if (e.code === 'KeyS' || e.key === 's' || e.key === 'S') {
+      const sellBtn = document.getElementById('sell-all-btn');
+      if (sellBtn && !sellBtn.disabled) sellAll();
+    }
+  });
 });
 function startGame() {
   socket.emit('game:start', {}, (res) => {
     if (res && !res.ok) showToast('❌','Error', res.error);
   });
+}
+function confirmEndLobby() {
+  if (confirm('Close this lobby? All players will be disconnected.')) {
+    socket.emit('lobby:end', {}, (res) => {
+      if (res && !res.ok) showToast('❌','Error', res.error || 'Could not end lobby.');
+    });
+  }
 }
 function confirmEndGame() {
   if (confirm('End the game for everyone? Final scores will be tallied.')) {
