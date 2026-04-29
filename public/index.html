@@ -238,6 +238,12 @@
   .toast-icon{font-size:1.4rem;}
   .toast-text{font-size:.9rem;line-height:1.3;}
   .toast-title{font-weight:700;color:var(--gold);}
+  /* Rank-change toast */
+  #rank-toast{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);z-index:9998;pointer-events:none;display:flex;align-items:center;gap:.6rem;padding:.5rem 1.1rem;border-radius:999px;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.12em;white-space:nowrap;opacity:0;transition:opacity .25s;}
+  #rank-toast.rank-up{background:rgba(48,217,122,.18);border:1.5px solid #30d97a;color:#30d97a;box-shadow:0 0 16px rgba(48,217,122,.25);}
+  #rank-toast.rank-down{background:rgba(232,64,64,.15);border:1.5px solid #e84040;color:#e84060;box-shadow:0 0 16px rgba(232,64,64,.2);}
+  #rank-toast.rank-show{opacity:1;animation:rankPop .35s cubic-bezier(.16,1,.3,1) both;}
+  @keyframes rankPop{from{transform:translateX(-50%) scale(.85)}to{transform:translateX(-50%) scale(1)}}
 
   /* Server list */
   .server-row{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .12s;}
@@ -394,6 +400,7 @@
 </head>
 <body>
 <div id="toast-container"></div>
+<div id="rank-toast"></div>
 
 <!-- TITLE -->
 <div id="title-screen" class="screen active">
@@ -727,6 +734,7 @@ let isHost = false;
 let lobbyCode = null;
 let selfState = null;
 let allPlayers = [];
+let myLastRank = null; // tracks position for change announcements
 let currentTab = 'upgrades';
 let sessionToken = null;
 let selectedMode = 'unlimited'; // 'unlimited' | 'timed' | 'teams'
@@ -894,7 +902,7 @@ function leaveLobby() {
   if (!confirm('Leave this lobby?')) return;
   socket.emit('lobby:leave', {}, (res) => {
     if (res && !res.ok) { showToast('❌', 'Cannot Leave', res.error); return; }
-    lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+    lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
     sessionToken = null;
     clearSession();
     showScreen('title-screen');
@@ -906,7 +914,7 @@ function confirmLeaveGame() {
   if (!confirm('Leave this game? You\'ll lose your progress in this round.')) return;
   socket.emit('lobby:leave', {}, (res) => {
     if (res && !res.ok) { showToast('❌', 'Cannot Leave', res.error); return; }
-    lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+    lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
     sessionToken = null;
     stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); clearOrbitMiners();
     clearSession();
@@ -1038,7 +1046,7 @@ function initSocket() {
     gameMode = mode;
     lobbyCode = code;
     // Reset game state
-    selfState = null; allPlayers = [];
+    selfState = null; allPlayers = []; myLastRank = null;
     stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); clearOrbitMiners();
     document.getElementById('lobby-code-display').textContent = lobbyCode;
     document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
@@ -1055,6 +1063,7 @@ function initSocket() {
 
   socket.on('game:started', ({ mode, duration } = {}) => {
     gameMode = mode || gameMode;
+    myLastRank = null; // reset rank tracking for new game
     showScreen('game-screen');
     document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
     document.getElementById('end-game-btn').style.display = isHost ? 'block' : 'none';
@@ -1068,6 +1077,35 @@ function initSocket() {
 
   socket.on('game:state', ({ players }) => {
     allPlayers = players;
+
+    // ── Rank-change announcements ──────────────────────────────────────────
+    if (mySocketId && players.length > 1) {
+      const sorted = [...players].sort((a, b) =>
+        (b.totalEarned + (b.unsoldValue || 0)) - (a.totalEarned + (a.unsoldValue || 0))
+      );
+      const myIdx = sorted.findIndex(p => p.socketId === mySocketId);
+      if (myIdx !== -1) {
+        const newRank = myIdx + 1;
+        const total = sorted.length;
+        if (myLastRank !== null && newRank !== myLastRank) {
+          const moved = myLastRank - newRank; // positive = moved up
+          if (moved > 0) {
+            // Climbed up — figure out who we just passed
+            const nowAhead = sorted[myIdx + 1]; // player just below (was ahead before)
+            const msg = nowAhead ? `Passed ${nowAhead.avatar} ${nowAhead.name}` : `You're #${newRank}!`;
+            showRankToast('up', newRank, total, msg);
+          } else {
+            // Dropped down
+            const nowAbove = sorted[myIdx - 1]; // player just above
+            const msg = nowAbove ? `${nowAbove.avatar} ${nowAbove.name} overtook you` : `You dropped to #${newRank}`;
+            showRankToast('down', newRank, total, msg);
+          }
+        }
+        myLastRank = newRank;
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     if (currentTab === 'players') renderPlayers();
     if (currentTab === 'sabotage') renderSabotage();
   });
@@ -1127,7 +1165,7 @@ function initSocket() {
   });
 
   socket.on('lobby:closed', ({ reason }) => {
-    lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+    lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
     sessionToken = null;
     stopClientTimer?.(); stopSabCooldownTick?.(); removeFrozenOverlay?.(); clearOrbitMiners?.();
     clearSession();
@@ -2091,7 +2129,7 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 function goTitle() {
-  lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+  lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
   sessionToken = null; gameMode = 'unlimited'; lobbyIsPublic = false;
   stopClientTimer();
   stopSabCooldownTick();
@@ -2110,6 +2148,23 @@ function showToast(icon, title, msg) {
   c.appendChild(t);
   setTimeout(() => t.style.opacity='0', 2800);
   setTimeout(() => t.remove(), 3200);
+}
+
+let _rankToastTimer = null;
+function showRankToast(dir, rank, total, detail) {
+  const el = document.getElementById('rank-toast');
+  if (!el) return;
+  // Cancel any pending hide
+  if (_rankToastTimer) { clearTimeout(_rankToastTimer); _rankToastTimer = null; }
+  const medals = ['🥇','🥈','🥉','4️⃣'];
+  const medal = medals[rank - 1] || `#${rank}`;
+  const arrow = dir === 'up' ? '▲' : '▼';
+  el.className = `rank-${dir} rank-show`;
+  el.textContent = `${arrow} ${medal} of ${total}  —  ${detail}`;
+  _rankToastTimer = setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => { el.className = ''; el.textContent = ''; }, 300);
+  }, 3500);
 }
 
 // ─── Sabotage ──────────────────────────────────────────────────────────────────
