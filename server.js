@@ -19,12 +19,12 @@ const MAX_PLAYERS = 4;
 const GEM_TYPES = [
   { name: 'Coal',      emoji: '🪨', color: '#5a4a3a', value: 1,    rarity: 0.45  },
   { name: 'Quartz',    emoji: '🔹', color: '#aaddff', value: 3,    rarity: 0.25  },
-  { name: 'Ruby',      emoji: '♦️',  color: '#e84040', value: 8,    rarity: 0.15  },
-  { name: 'Emerald',   emoji: '💚', color: '#30d97a', value: 18,   rarity: 0.09  },
-  { name: 'Sapphire',  emoji: '🔷', color: '#4090f5', value: 40,   rarity: 0.04  },
-  { name: 'Diamond',   emoji: '💎', color: '#c0f0ff', value: 100,  rarity: 0.015 },
-  { name: 'Moonstone', emoji: '🌕', color: '#e8d8ff', value: 300,  rarity: 0.004 },
-  { name: 'Void Gem',  emoji: '🔮', color: '#9040f0', value: 1000, rarity: 0.001 },
+  { name: 'Ruby',      emoji: '♦️',  color: '#e84040', value: 8,    rarity: 0.015  },
+  { name: 'Emerald',   emoji: '💚', color: '#30d97a', value: 18,   rarity: 0.01  },
+  { name: 'Sapphire',  emoji: '🔷', color: '#4090f5', value: 40,   rarity: 0.005  },
+  { name: 'Diamond',   emoji: '💎', color: '#c0f0ff', value: 100,  rarity: 0.001 },
+  { name: 'Moonstone', emoji: '🌕', color: '#e8d8ff', value: 300,  rarity: 0.0004 },
+  { name: 'Void Gem',  emoji: '🔮', color: '#9040f0', value: 1000, rarity: 0.0001 },
 ];
 
 const UPGRADES = [
@@ -50,6 +50,7 @@ const UPGRADES = [
   { id: 'void_rig',   name: 'Void Drill Rig',   emoji: '🔮', baseCost: 100000, costMult: 8.5,  maxLevel: 2,  type: 'autoMine',        amount: 25,   gemEmoji: '🔮', desc: 'Drills into another dimension. +25 gems/sec AFK.' },
   { id: 'gem_forge',  name: 'Gem Forge',        emoji: '⚗️',  baseCost: 150000, costMult: 8.0,  maxLevel: 2,  type: 'valueMultiplier', amount: 1.00, desc: 'Refine raw gems. +100% sell value per level.' },
   { id: 'singularity',name: 'Mining Singularity',emoji:'🌀', baseCost: 500000, costMult: 10.0, maxLevel: 1,  type: 'autoMine',        amount: 100,  gemEmoji: '🔮', desc: 'A point of infinite density. +100 gems/sec AFK.' },
+  { id: 'satchel',    name: 'Gem Satchel',       emoji:'🎒', baseCost: 500,    costMult: 4.5,  maxLevel: 6,  type: 'inventoryCap',    amount: 0,                    desc: 'Doubles your bag capacity each upgrade. Starts at 50 slots.' },
 ];
 
 const ACHIEVEMENTS = [
@@ -84,11 +85,39 @@ const ACHIEVEMENTS = [
   { id: 'singularity_u', name: 'Singularity Achieved',emoji: '🌀', check: s => (s.upgradeLevels?.['singularity'] || 0) >= 1 },
 ];
 
-const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
+const SABOTAGES = [
+  { id: 'freeze',     name: 'Freeze',      emoji: '🧊', baseCost: 300,  desc: 'Halts their auto-miners for 15 seconds.' },
+  { id: 'pickpocket', name: 'Pickpocket',  emoji: '🪤', baseCost: 500,  desc: 'Steals 8% of their held inventory gems.' },
+  { id: 'cursed_vein',name: 'Cursed Vein', emoji: '☠️', baseCost: 800,  desc: 'Their next 10 clicks are guaranteed misses.' },
+];
+// Scaling: cost = baseCost * (1 + timesUsed * 0.35)^2
+function sabotageCost(sab, timesUsed) {
+  return Math.floor(sab.baseCost * Math.pow(1 + timesUsed * 0.35, 2));
+}
+
+const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️','💎','🔮','⚗️','🌋','🦅','🐺','🐸','🧨','👑','🧲','🪄','⚡','🌀','🔥','❄️','☠️'];
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
 const lobbies = new Map();
 const sessions = new Map(); // sessionToken -> { lobbyCode, socketId, playerName }
+
+// Public lobby list endpoint
+app.get('/api/lobbies', (req, res) => {
+  const publicLobbies = [];
+  for (const [code, lobby] of lobbies.entries()) {
+    if (lobby.isPublic && lobby.status === 'waiting') {
+      publicLobbies.push({
+        code,
+        playerCount: Object.keys(lobby.players).length,
+        maxPlayers: MAX_PLAYERS,
+        gameMode: lobby.gameMode,
+        gameDuration: lobby.gameDuration,
+        hostName: Object.values(lobby.players)[0]?.state?.name || 'Unknown',
+      });
+    }
+  }
+  res.json(publicLobbies);
+});
 
 function generateCode() {
   const words = ['GOLD','IRON','COAL','RUBY','JADE','OPAL','ONYX','GEMS'];
@@ -114,11 +143,16 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     valueMultiplier: 1,
     rarityBonus: 0,
     upgradesBought: 0,
+    inventoryCap: 50,
     inventory: {},
     achievementsUnlocked: [],
     upgradeLevels: {},
     totalSold: {},
     totalSellCount: 0,
+    sabotageUses: {},      // { sabotageId: timesUsed }
+    sabotageCooldowns: {}, // { sabotageId: timestampMs }
+    frozenUntil: 0,        // timestamp when freeze expires
+    cursedClicksLeft: 0,   // forced misses remaining
   };
 }
 
@@ -162,6 +196,7 @@ function applyUpgrade(player, upgradeId) {
     case 'rarityBonus':     player.rarityBonus     += u.amount; break;
     case 'valueMultiplier': player.valueMultiplier += u.amount; break;
     case 'clickChance':     player.clickChance = Math.min(1, player.clickChance + u.amount); break;
+    case 'inventoryCap':    player.inventoryCap = (player.inventoryCap || 50) * 2; break;
   }
 }
 
@@ -181,6 +216,10 @@ function broadcastLobbyState(lobby) {
   io.to(lobby.code).emit('lobby:state', {
     code: lobby.code,
     status: lobby.status,
+    hostId: lobby.hostId,
+    isPublic: lobby.isPublic || false,
+    gameMode: lobby.gameMode,
+    gameDuration: lobby.gameDuration,
     players: players.map(p => ({
       socketId: p.socketId,
       name: p.state.name,
@@ -204,6 +243,7 @@ function broadcastGameState(lobby) {
     upgradesBought: p.state.upgradesBought,
     achievementsUnlocked: p.state.achievementsUnlocked,
     unsoldValue: calcInventoryValue(p.state),
+    team: p.team,
   }));
   io.to(lobby.code).emit('game:state', { players: snapshot });
 }
@@ -222,6 +262,8 @@ function startAutoMineInterval(lobby) {
     let anyAutoMiner = false;
     for (const [sid, p] of Object.entries(lobby.players)) {
       if (p.state.autoMine > 0) {
+        // Skip auto-mine if frozen
+        if (p.state.frozenUntil && Date.now() < p.state.frozenUntil) continue;
         anyAutoMiner = true;
         const drops = [];
         for (let i = 0; i < p.state.autoMine; i++) {
@@ -252,14 +294,61 @@ function playerSelfPayload(state) {
     valueMultiplier: state.valueMultiplier,
     rarityBonus: state.rarityBonus,
     upgradesBought: state.upgradesBought,
+    inventoryCap: state.inventoryCap || 50,
     inventory: state.inventory,
     achievementsUnlocked: state.achievementsUnlocked,
     upgradeLevels: state.upgradeLevels,
+    sabotageUses: state.sabotageUses || {},
+    sabotageCooldowns: state.sabotageCooldowns || {},
+    frozenUntil: state.frozenUntil || 0,
+    cursedClicksLeft: state.cursedClicksLeft || 0,
   };
+}
+
+function computeAwards(lobby) {
+  const players = Object.values(lobby.players).map(p => p.state);
+  if (players.length < 2) return [];
+  const awards = [];
+
+  // 🐢 Slowest Seller — most gems still in inventory at end
+  const sorted_unsold = [...players].sort((a,b) => {
+    const ua = Object.values(a.inventory).reduce((s,v)=>s+v,0);
+    const ub = Object.values(b.inventory).reduce((s,v)=>s+v,0);
+    return ub - ua;
+  });
+  const hoardCount = Object.values(sorted_unsold[0].inventory).reduce((s,v)=>s+v,0);
+  if (hoardCount > 0) awards.push({ emoji:'🐢', title:'Slowest Seller', desc:`${sorted_unsold[0].name} had ${hoardCount} gems still in their bag!` });
+
+  // 🎰 Luckiest Miner — most Void Gems ever found
+  const sorted_void = [...players].sort((a,b) =>
+    ((b.inventory['Void Gem']||0) + (b.totalSold?.['Void Gem']||0)) - ((a.inventory['Void Gem']||0) + (a.totalSold?.['Void Gem']||0))
+  );
+  const voidCount = (sorted_void[0].inventory['Void Gem']||0) + (sorted_void[0].totalSold?.['Void Gem']||0);
+  if (voidCount > 0) awards.push({ emoji:'🎰', title:'Luckiest Miner', desc:`${sorted_void[0].name} found ${voidCount} Void Gem${voidCount>1?'s':''}!` });
+
+  // 🤖 Most AFK — highest auto-mine rate
+  const sorted_afk = [...players].sort((a,b) => b.autoMine - a.autoMine);
+  if (sorted_afk[0].autoMine > 0) awards.push({ emoji:'🤖', title:'AFK Champion', desc:`${sorted_afk[0].name} reached ${sorted_afk[0].autoMine} gems/sec on auto-mine.` });
+
+  // 😈 Chaos Agent — most sabotages used
+  const sorted_sab = [...players].sort((a,b) => {
+    const ua = Object.values(a.sabotageUses||{}).reduce((s,v)=>s+v,0);
+    const ub = Object.values(b.sabotageUses||{}).reduce((s,v)=>s+v,0);
+    return ub - ua;
+  });
+  const sabCount = Object.values(sorted_sab[0].sabotageUses||{}).reduce((s,v)=>s+v,0);
+  if (sabCount > 0) awards.push({ emoji:'😈', title:'Chaos Agent', desc:`${sorted_sab[0].name} sabotaged others ${sabCount} time${sabCount>1?'s':''}!` });
+
+  // 🖱️ Click Maniac — most clicks
+  const sorted_clicks = [...players].sort((a,b) => b.totalClicks - a.totalClicks);
+  awards.push({ emoji:'🖱️', title:'Click Maniac', desc:`${sorted_clicks[0].name} clicked ${sorted_clicks[0].totalClicks.toLocaleString()} times!` });
+
+  return awards;
 }
 
 function endGame(lobby) {
   clearInterval(lobby.timer);
+  if (lobby.timedEnd) clearTimeout(lobby.timedEnd);
   lobby.status = 'ended';
   const results = Object.values(lobby.players)
     .map(p => ({
@@ -270,10 +359,48 @@ function endGame(lobby) {
       totalEarned: p.state.totalEarned,
       totalGems: p.state.totalGems,
       unsoldValue: calcInventoryValue(p.state),
-    }))
-    .sort((a, b) => b.totalEarned - a.totalEarned);
-  io.to(lobby.code).emit('game:ended', { results });
-  setTimeout(() => lobbies.delete(lobby.code), 120_000);
+      team: p.team,
+    }));
+
+  // Teams mode: rank by team combined score then individual
+  if (lobby.gameMode === 'teams') {
+    const teamScores = { A: 0, B: 0 };
+    results.forEach(r => { if (r.team) teamScores[r.team] += r.totalEarned; });
+    const winTeam = teamScores.A >= teamScores.B ? 'A' : 'B';
+    results.sort((a, b) => {
+      const aWin = a.team === winTeam ? 0 : 1;
+      const bWin = b.team === winTeam ? 0 : 1;
+      if (aWin !== bWin) return aWin - bWin;
+      return b.totalEarned - a.totalEarned;
+    });
+  } else {
+    results.sort((a, b) => b.totalEarned - a.totalEarned);
+  }
+
+  io.to(lobby.code).emit('game:ended', { results, mode: lobby.gameMode, awards: computeAwards(lobby) });
+
+  // Reset lobby to waiting state after 15 seconds so players return to lobby
+  setTimeout(() => {
+    if (!lobbies.has(lobby.code)) return; // already cleaned up
+    lobby.status = 'waiting';
+    lobby.timer = null;
+    lobby.timedEnd = null;
+    // Reset all player states but keep names/avatars/colors
+    let colorIdx = 0;
+    for (const [sid, p] of Object.entries(lobby.players)) {
+      const { name, avatar, color } = p.state;
+      p.state = createPlayerState(name, 0, colorIdx);
+      p.state.avatar = avatar;
+      p.state.color = color;
+      colorIdx++;
+    }
+    broadcastLobbyState(lobby);
+    io.to(lobby.code).emit('lobby:returnedFromGame', {
+      code: lobby.code,
+      mode: lobby.gameMode,
+      duration: lobby.gameDuration,
+    });
+  }, 15000);
 }
 
 io.on('connection', (socket) => {
@@ -312,6 +439,8 @@ io.on('connection', (socket) => {
       status: lobby.status,
       isHost,
       self: playerSelfPayload(player.state),
+      mode: lobby.gameMode,
+      duration: lobby.gameDuration,
     });
 
     if (lobby.status === 'waiting') {
@@ -321,34 +450,76 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('lobby:create', ({ playerName }, callback) => {
+  socket.on('lobby:create', ({ playerName, mode, duration, isPublic }, callback) => {
     let code;
     do { code = generateCode(); } while (lobbies.has(code));
-    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null };
+    const gameMode = mode || 'unlimited';
+    const gameDuration = gameMode === 'timed' ? (duration || 300) : null;
+    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null, gameMode, gameDuration, isPublic: !!isPublic };
     const state = createPlayerState(playerName || 'Miner', 0, 0);
-    lobby.players[socket.id] = { socketId: socket.id, state };
+    lobby.players[socket.id] = { socketId: socket.id, state, team: 'A' };
     lobbies.set(code, lobby);
     socket.join(code);
     socket.data.lobbyCode = code;
     const token = generateSessionToken();
     sessions.set(token, { lobbyCode: code, socketId: socket.id });
-    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token });
+    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token, mode: gameMode, duration: gameDuration });
     broadcastLobbyState(lobby);
   });
 
   socket.on('lobby:join', ({ playerName, code }, callback) => {
     const lobby = lobbies.get(code.toUpperCase());
     if (!lobby) return callback({ ok: false, error: 'Lobby not found.' });
+    if (lobby.status === 'playing') return callback({ ok: false, error: 'Game already in progress. Wait for it to end.' });
+    if (lobby.status === 'ended') return callback({ ok: false, error: 'This game has ended.' });
     const count = Object.keys(lobby.players).length;
     if (count >= MAX_PLAYERS) return callback({ ok: false, error: 'Lobby is full.' });
     const state = createPlayerState(playerName || 'Miner', count, count);
-    lobby.players[socket.id] = { socketId: socket.id, state };
+    // Teams: players 0,2 = Team A; players 1,3 = Team B
+    const team = count % 2 === 0 ? 'A' : 'B';
+    lobby.players[socket.id] = { socketId: socket.id, state, team };
     socket.join(code.toUpperCase());
     socket.data.lobbyCode = code.toUpperCase();
     const token = generateSessionToken();
     sessions.set(token, { lobbyCode: code.toUpperCase(), socketId: socket.id });
-    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state), token });
+    callback({ ok: true, code: code.toUpperCase(), playerIndex: count, self: playerSelfPayload(state), token, mode: lobby.gameMode, duration: lobby.gameDuration });
     broadcastLobbyState(lobby);
+  });
+
+  socket.on('lobby:changeMode', ({ mode, duration }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can change mode.' });
+    if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Cannot change mode during game.' });
+    lobby.gameMode = mode || 'unlimited';
+    lobby.gameDuration = lobby.gameMode === 'timed' ? (duration || 300) : null;
+    io.to(lobby.code).emit('lobby:modeChanged', { mode: lobby.gameMode, duration: lobby.gameDuration });
+    callback?.({ ok: true, mode: lobby.gameMode, duration: lobby.gameDuration });
+  });
+
+  socket.on('lobby:leave', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false });
+    if (lobby.hostId === socket.id) return callback?.({ ok: false, error: 'Host cannot leave. End the game or close the lobby instead.' });
+    delete lobby.players[socket.id];
+    socket.leave(lobby.code);
+    socket.data.lobbyCode = null;
+    // Clear session
+    for (const [token, sess] of sessions.entries()) {
+      if (sess.socketId === socket.id) { sessions.delete(token); break; }
+    }
+    callback?.({ ok: true });
+    if (lobby.status === 'waiting') broadcastLobbyState(lobby);
+    else broadcastGameState(lobby);
+  });
+
+  socket.on('lobby:setPublic', ({ isPublic }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can change visibility.' });
+    lobby.isPublic = !!isPublic;
+    callback?.({ ok: true, isPublic: lobby.isPublic });
+    io.to(lobby.code).emit('lobby:visibilityChanged', { isPublic: lobby.isPublic });
   });
 
   socket.on('lobby:rename', ({ name }, callback) => {
@@ -363,15 +534,35 @@ io.on('connection', (socket) => {
     broadcastLobbyState(lobby);
   });
 
+  socket.on('lobby:setAvatar', ({ avatar }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+    if (PLAYER_AVATARS.includes(avatar)) {
+      p.state.avatar = avatar;
+      callback?.({ ok: true });
+      broadcastLobbyState(lobby);
+    } else {
+      callback?.({ ok: false, error: 'Invalid avatar.' });
+    }
+  });
+
   socket.on('game:start', (_, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
     if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can start.' });
     if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Already started.' });
     lobby.status = 'playing';
-    io.to(lobby.code).emit('game:started');
+    io.to(lobby.code).emit('game:started', { mode: lobby.gameMode, duration: lobby.gameDuration });
     startAutoMineInterval(lobby);
     broadcastGameState(lobby);
+    // Timed mode: auto-end after duration
+    if (lobby.gameMode === 'timed' && lobby.gameDuration) {
+      lobby.timedEnd = setTimeout(() => {
+        if (lobby.status === 'playing') endGame(lobby);
+      }, lobby.gameDuration * 1000);
+    }
     callback?.({ ok: true });
   });
 
@@ -392,6 +583,14 @@ io.on('connection', (socket) => {
 
     p.state.totalClicks++;
 
+    // Cursed vein: forced misses
+    if (p.state.cursedClicksLeft > 0) {
+      p.state.cursedClicksLeft--;
+      const newAch = checkAchievements(p.state);
+      if (newAch.length) socket.emit('achievements:unlocked', newAch);
+      return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: true, cursed: true, self: playerSelfPayload(p.state) });
+    }
+
     const chance = p.state.clickChance || 0.55;
     if (Math.random() > chance) {
       const newAch = checkAchievements(p.state);
@@ -399,7 +598,14 @@ io.on('connection', (socket) => {
       return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: true, self: playerSelfPayload(p.state) });
     }
 
-    const count = Math.ceil(p.state.gemsPerClick);
+    // Check inventory cap
+    const cap = p.state.inventoryCap || 50;
+    const held = Object.values(p.state.inventory).reduce((s,v)=>s+v,0);
+    if (held >= cap) {
+      return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: false, full: true, self: playerSelfPayload(p.state) });
+    }
+
+    const count = Math.min(Math.ceil(p.state.gemsPerClick), cap - held);
     const drops = [];
     for (let i = 0; i < count; i++) {
       const gem = rollGem(p.state);
@@ -411,6 +617,26 @@ io.on('connection', (socket) => {
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     callback?.({ ok: true, gemsAdded: count, drops, miss: false, self: playerSelfPayload(p.state) });
+
+    // Broadcast very rare finds (Moonstone / Void Gem) to entire lobby
+    // Throttled per player per gem: Moonstone max once/30s, Void Gem max once/60s
+    const now = Date.now();
+    p.state.rareFindCooldowns = p.state.rareFindCooldowns || {};
+    drops.forEach(d => {
+      const gemDef = GEM_TYPES.find(g => g.name === d.name);
+      if (!gemDef || gemDef.rarity > 0.004) return;
+      const cooldownMs = gemDef.rarity <= 0.001 ? 60000 : 30000;
+      const lastBroadcast = p.state.rareFindCooldowns[d.name] || 0;
+      if (now - lastBroadcast < cooldownMs) return;
+      p.state.rareFindCooldowns[d.name] = now;
+      io.to(lobby.code).emit('game:rareFind', {
+        finderName: p.state.name,
+        finderAvatar: p.state.avatar,
+        gemName: d.name,
+        gemEmoji: d.emoji,
+        isVoid: gemDef.rarity <= 0.001,
+      });
+    });
   });
 
   socket.on('game:sell', ({ gemName, quantity }, callback) => {
@@ -455,6 +681,66 @@ io.on('connection', (socket) => {
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     callback?.({ ok: true, self: playerSelfPayload(p.state) });
+  });
+
+  // ── Sabotage ────────────────────────────────────────────────────────────────
+  socket.on('game:sabotage', ({ sabotageId, targetSocketId }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'playing') return callback?.({ ok: false, error: 'Not in game.' });
+    const attacker = lobby.players[socket.id];
+    const target   = lobby.players[targetSocketId];
+    if (!attacker || !target) return callback?.({ ok: false, error: 'Player not found.' });
+    if (targetSocketId === socket.id) return callback?.({ ok: false, error: 'Cannot sabotage yourself.' });
+
+    const sab = SABOTAGES.find(s => s.id === sabotageId);
+    if (!sab) return callback?.({ ok: false, error: 'Unknown sabotage.' });
+
+    // Check cooldown (30s)
+    const now = Date.now();
+    const cooldowns = attacker.state.sabotageCooldowns || {};
+    if (cooldowns[sabotageId] && now < cooldowns[sabotageId]) {
+      const secsLeft = Math.ceil((cooldowns[sabotageId] - now) / 1000);
+      return callback?.({ ok: false, error: `On cooldown for ${secsLeft}s.` });
+    }
+
+    const timesUsed = (attacker.state.sabotageUses?.[sabotageId] || 0);
+    const cost = sabotageCost(sab, timesUsed);
+    if (attacker.state.profit < cost) return callback?.({ ok: false, error: 'Not enough cash.' });
+
+    // Deduct cost & record use
+    attacker.state.profit -= cost;
+    attacker.state.sabotageUses = attacker.state.sabotageUses || {};
+    attacker.state.sabotageUses[sabotageId] = timesUsed + 1;
+    attacker.state.sabotageCooldowns = attacker.state.sabotageCooldowns || {};
+    attacker.state.sabotageCooldowns[sabotageId] = now + 30000;
+
+    // Apply effect
+    switch (sabotageId) {
+      case 'freeze':
+        target.state.frozenUntil = now + 15000;
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar, duration: 15 });
+        break;
+      case 'pickpocket': {
+        const inv = target.state.inventory;
+        const gemNames = Object.keys(inv).filter(k => inv[k] > 0);
+        let stolen = 0;
+        gemNames.forEach(name => {
+          const take = Math.floor(inv[name] * 0.08);
+          if (take > 0) { inv[name] -= take; stolen += take; if (inv[name] <= 0) delete inv[name]; }
+        });
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar, stolen });
+        break;
+      }
+      case 'cursed_vein':
+        target.state.cursedClicksLeft = (target.state.cursedClicksLeft || 0) + 10;
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar });
+        break;
+    }
+
+    io.to(socket.id).emit('player:self', playerSelfPayload(attacker.state));
+    io.to(targetSocketId).emit('player:self', playerSelfPayload(target.state));
+    broadcastGameState(lobby);
+    callback?.({ ok: true, cost, self: playerSelfPayload(attacker.state) });
   });
 
   socket.on('disconnect', () => {
