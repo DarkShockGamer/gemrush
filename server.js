@@ -50,7 +50,7 @@ const UPGRADES = [
   { id: 'void_rig',   name: 'Void Drill Rig',   emoji: '🔮', baseCost: 100000, costMult: 8.5,  maxLevel: 2,  type: 'autoMine',        amount: 25,   gemEmoji: '🔮', desc: 'Drills into another dimension. +25 gems/sec AFK.' },
   { id: 'gem_forge',  name: 'Gem Forge',        emoji: '⚗️',  baseCost: 150000, costMult: 8.0,  maxLevel: 2,  type: 'valueMultiplier', amount: 1.00, desc: 'Refine raw gems. +100% sell value per level.' },
   { id: 'singularity',name: 'Mining Singularity',emoji:'🌀', baseCost: 500000, costMult: 10.0, maxLevel: 1,  type: 'autoMine',        amount: 100,  gemEmoji: '🔮', desc: 'A point of infinite density. +100 gems/sec AFK.' },
-  { id: 'satchel',    name: 'Gem Satchel',       emoji:'🎒', baseCost: 200,    costMult: 3.0,  maxLevel: 6,  type: 'inventoryCap',    amount: 25,                   desc: 'Carry more gems. +25 inventory slots per level.' },
+  { id: 'satchel',    name: 'Gem Satchel',       emoji:'🎒', baseCost: 500,    costMult: 4.5,  maxLevel: 6,  type: 'inventoryCap',    amount: 0,                    desc: 'Doubles your bag capacity each upgrade. Starts at 50 slots.' },
 ];
 
 const ACHIEVEMENTS = [
@@ -100,6 +100,24 @@ const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
 const lobbies = new Map();
 const sessions = new Map(); // sessionToken -> { lobbyCode, socketId, playerName }
+
+// Public lobby list endpoint
+app.get('/api/lobbies', (req, res) => {
+  const publicLobbies = [];
+  for (const [code, lobby] of lobbies.entries()) {
+    if (lobby.isPublic && lobby.status === 'waiting') {
+      publicLobbies.push({
+        code,
+        playerCount: Object.keys(lobby.players).length,
+        maxPlayers: MAX_PLAYERS,
+        gameMode: lobby.gameMode,
+        gameDuration: lobby.gameDuration,
+        hostName: Object.values(lobby.players)[0]?.state?.name || 'Unknown',
+      });
+    }
+  }
+  res.json(publicLobbies);
+});
 
 function generateCode() {
   const words = ['GOLD','IRON','COAL','RUBY','JADE','OPAL','ONYX','GEMS'];
@@ -178,7 +196,7 @@ function applyUpgrade(player, upgradeId) {
     case 'rarityBonus':     player.rarityBonus     += u.amount; break;
     case 'valueMultiplier': player.valueMultiplier += u.amount; break;
     case 'clickChance':     player.clickChance = Math.min(1, player.clickChance + u.amount); break;
-    case 'inventoryCap':    player.inventoryCap = (player.inventoryCap || 50) + u.amount; break;
+    case 'inventoryCap':    player.inventoryCap = (player.inventoryCap || 50) * 2; break;
   }
 }
 
@@ -198,6 +216,10 @@ function broadcastLobbyState(lobby) {
   io.to(lobby.code).emit('lobby:state', {
     code: lobby.code,
     status: lobby.status,
+    hostId: lobby.hostId,
+    isPublic: lobby.isPublic || false,
+    gameMode: lobby.gameMode,
+    gameDuration: lobby.gameDuration,
     players: players.map(p => ({
       socketId: p.socketId,
       name: p.state.name,
@@ -356,7 +378,29 @@ function endGame(lobby) {
   }
 
   io.to(lobby.code).emit('game:ended', { results, mode: lobby.gameMode, awards: computeAwards(lobby) });
-  setTimeout(() => lobbies.delete(lobby.code), 120_000);
+
+  // Reset lobby to waiting state after 15 seconds so players return to lobby
+  setTimeout(() => {
+    if (!lobbies.has(lobby.code)) return; // already cleaned up
+    lobby.status = 'waiting';
+    lobby.timer = null;
+    lobby.timedEnd = null;
+    // Reset all player states but keep names/avatars/colors
+    let colorIdx = 0;
+    for (const [sid, p] of Object.entries(lobby.players)) {
+      const { name, avatar, color } = p.state;
+      p.state = createPlayerState(name, 0, colorIdx);
+      p.state.avatar = avatar;
+      p.state.color = color;
+      colorIdx++;
+    }
+    broadcastLobbyState(lobby);
+    io.to(lobby.code).emit('lobby:returnedFromGame', {
+      code: lobby.code,
+      mode: lobby.gameMode,
+      duration: lobby.gameDuration,
+    });
+  }, 15000);
 }
 
 io.on('connection', (socket) => {
@@ -406,12 +450,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('lobby:create', ({ playerName, mode, duration }, callback) => {
+  socket.on('lobby:create', ({ playerName, mode, duration, isPublic }, callback) => {
     let code;
     do { code = generateCode(); } while (lobbies.has(code));
     const gameMode = mode || 'unlimited';
     const gameDuration = gameMode === 'timed' ? (duration || 300) : null;
-    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null, gameMode, gameDuration };
+    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null, gameMode, gameDuration, isPublic: !!isPublic };
     const state = createPlayerState(playerName || 'Miner', 0, 0);
     lobby.players[socket.id] = { socketId: socket.id, state, team: 'A' };
     lobbies.set(code, lobby);
@@ -426,6 +470,8 @@ io.on('connection', (socket) => {
   socket.on('lobby:join', ({ playerName, code }, callback) => {
     const lobby = lobbies.get(code.toUpperCase());
     if (!lobby) return callback({ ok: false, error: 'Lobby not found.' });
+    if (lobby.status === 'playing') return callback({ ok: false, error: 'Game already in progress. Wait for it to end.' });
+    if (lobby.status === 'ended') return callback({ ok: false, error: 'This game has ended.' });
     const count = Object.keys(lobby.players).length;
     if (count >= MAX_PLAYERS) return callback({ ok: false, error: 'Lobby is full.' });
     const state = createPlayerState(playerName || 'Miner', count, count);
@@ -440,7 +486,41 @@ io.on('connection', (socket) => {
     broadcastLobbyState(lobby);
   });
 
-  socket.on('lobby:rename', ({ name }, callback) => {
+  socket.on('lobby:changeMode', ({ mode, duration }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can change mode.' });
+    if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Cannot change mode during game.' });
+    lobby.gameMode = mode || 'unlimited';
+    lobby.gameDuration = lobby.gameMode === 'timed' ? (duration || 300) : null;
+    io.to(lobby.code).emit('lobby:modeChanged', { mode: lobby.gameMode, duration: lobby.gameDuration });
+    callback?.({ ok: true, mode: lobby.gameMode, duration: lobby.gameDuration });
+  });
+
+  socket.on('lobby:leave', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false });
+    if (lobby.hostId === socket.id) return callback?.({ ok: false, error: 'Host cannot leave. End the game or close the lobby instead.' });
+    delete lobby.players[socket.id];
+    socket.leave(lobby.code);
+    socket.data.lobbyCode = null;
+    // Clear session
+    for (const [token, sess] of sessions.entries()) {
+      if (sess.socketId === socket.id) { sessions.delete(token); break; }
+    }
+    callback?.({ ok: true });
+    if (lobby.status === 'waiting') broadcastLobbyState(lobby);
+    else broadcastGameState(lobby);
+  });
+
+  socket.on('lobby:setPublic', ({ isPublic }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can change visibility.' });
+    lobby.isPublic = !!isPublic;
+    callback?.({ ok: true, isPublic: lobby.isPublic });
+    io.to(lobby.code).emit('lobby:visibilityChanged', { isPublic: lobby.isPublic });
+  });
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
     const p = lobby.players[socket.id];
