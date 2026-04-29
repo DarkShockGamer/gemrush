@@ -419,28 +419,7 @@ function endGame(lobby) {
 
   io.to(lobby.code).emit('game:ended', { results, mode: lobby.gameMode, awards: computeAwards(lobby) });
 
-  // Reset lobby to waiting state after 15 seconds so players return to lobby
-  setTimeout(() => {
-    if (!lobbies.has(lobby.code)) return; // already cleaned up
-    lobby.status = 'waiting';
-    lobby.timer = null;
-    lobby.timedEnd = null;
-    // Reset all player states but keep names/avatars/colors
-    let colorIdx = 0;
-    for (const [sid, p] of Object.entries(lobby.players)) {
-      const { name, avatar, color } = p.state;
-      p.state = createPlayerState(name, 0, colorIdx);
-      p.state.avatar = avatar;
-      p.state.color = color;
-      colorIdx++;
-    }
-    broadcastLobbyState(lobby);
-    io.to(lobby.code).emit('lobby:returnedFromGame', {
-      code: lobby.code,
-      mode: lobby.gameMode,
-      duration: lobby.gameDuration,
-    });
-  }, 15000);
+  // No auto-return — host manually triggers return via lobby:returnToLobby
 }
 
 io.on('connection', (socket) => {
@@ -636,6 +615,31 @@ io.on('connection', (socket) => {
     if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can end.' });
     if (lobby.status !== 'playing') return callback?.({ ok: false, error: 'Game not in progress.' });
     endGame(lobby);
+    callback?.({ ok: true });
+  });
+
+  socket.on('lobby:returnToLobby', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can return to lobby.' });
+    if (lobby.status !== 'ended') return callback?.({ ok: false, error: 'Game has not ended.' });
+    lobby.status = 'waiting';
+    lobby.timer = null;
+    lobby.timedEnd = null;
+    let colorIdx = 0;
+    for (const [sid, p] of Object.entries(lobby.players)) {
+      const { name, avatar, color } = p.state;
+      p.state = createPlayerState(name, 0, colorIdx);
+      p.state.avatar = avatar;
+      p.state.color = color;
+      colorIdx++;
+    }
+    broadcastLobbyState(lobby);
+    io.to(lobby.code).emit('lobby:returnedFromGame', {
+      code: lobby.code,
+      mode: lobby.gameMode,
+      duration: lobby.gameDuration,
+    });
     callback?.({ ok: true });
   });
 
