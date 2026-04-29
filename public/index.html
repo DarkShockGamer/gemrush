@@ -48,7 +48,7 @@
   .error-msg{color:var(--ruby);font-size:.85rem;margin-top:.5rem;display:none;}
 
   /* ── LOBBY ── */
-  #lobby-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem 1.5rem 120px;overflow-y:auto;}
+  #lobby-screen{flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;overflow-y:auto;}
   .lobby-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;width:100%;max-width:560px;}
   .lobby-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem;}
   .lobby-header h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);letter-spacing:.1em;}
@@ -430,13 +430,8 @@
 
   /* ── LOBBY CHAT ── */
   .lobby-chat-wrap {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
     width: 100%; max-width: 560px;
-    z-index: 100;
-    padding: 0 1.5rem 0;
+    margin-top: .8rem;
   }
   .lobby-chat-toggle {
     width: 100%;
@@ -515,7 +510,6 @@
   /* On very small screens keep toggle radius intact when closed */
   @media(max-width:480px) {
     .chat-messages { height: 140px; }
-    .lobby-chat-wrap { padding: 0 1rem 0; }
   }
 
 </style>
@@ -1058,6 +1052,9 @@ function leaveLobby() {
     lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
     sessionToken = null;
     clearSession();
+    const _chatWrap = document.getElementById('lobby-chat-wrap');
+    if (_chatWrap) _chatWrap.style.display = 'none';
+    clearChat?.();
     showScreen('title-screen');
     showHomeCard();
   });
@@ -1071,6 +1068,9 @@ function confirmLeaveGame() {
     sessionToken = null;
     stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); clearOrbitMiners();
     clearSession();
+    const _chatWrap = document.getElementById('lobby-chat-wrap');
+    if (_chatWrap) _chatWrap.style.display = 'none';
+    clearChat?.();
     showScreen('title-screen');
     showHomeCard();
   });
@@ -1461,6 +1461,9 @@ function initSocket() {
     sessionToken = null;
     stopClientTimer?.(); stopSabCooldownTick?.(); removeFrozenOverlay?.(); clearOrbitMiners?.();
     clearSession();
+    const _chatWrap = document.getElementById('lobby-chat-wrap');
+    if (_chatWrap) _chatWrap.style.display = 'none';
+    clearChat?.();
     showScreen('title-screen');
     showHomeCard?.();
     showToast('🚪', 'Lobby Closed', reason || 'The host ended the lobby.');
