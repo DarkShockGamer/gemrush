@@ -187,6 +187,15 @@
   .toast-text{font-size:.9rem;line-height:1.3;}
   .toast-title{font-weight:700;color:var(--gold);}
 
+  /* Server list */
+  .server-row{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .12s;}
+  .server-row:hover{border-color:var(--gold);}
+  .server-row-info{flex:1;}
+  .server-row-code{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);}
+  .server-row-meta{font-size:.75rem;color:var(--muted);margin-top:.1rem;}
+  .server-row-join{font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:.08em;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1200;border:none;border-radius:5px;padding:.25rem .7rem;cursor:pointer;}
+  .server-empty{font-size:.8rem;color:var(--muted);font-style:italic;text-align:center;padding:.8rem 0;}
+
   /* Mobile panel hint bar — sits above mine content, only visible on mobile */
   .mobile-panel-hint{display:none;}
   @media(max-width:700px){
@@ -404,7 +413,13 @@
       <input type="text" id="join-code" placeholder="e.g. GOLD-7432" maxlength="9" style="text-transform:uppercase" oninput="formatLobbyCode(this)">
       <div class="error-msg" id="join-error"></div>
     </div>
-    <button class="btn btn-gold" id="btn-join" onclick="joinLobby()" disabled>🚪 Join Lobby</button>
+    <button class="btn btn-gold" id="btn-join" onclick="joinLobby()" disabled>🚪 Join with Code</button>
+    <div class="divider">OR BROWSE OPEN LOBBIES</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+      <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);">Public Lobbies</div>
+      <button onclick="refreshServerList()" style="background:none;border:none;color:var(--muted);font-size:.85rem;cursor:pointer;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);">🔄 Refresh</button>
+    </div>
+    <div id="server-list" style="min-height:60px;"></div>
   </div>
 </div>
 
@@ -429,8 +444,41 @@
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
       Share the code above with up to 3 friends. Only the host can start the game.
     </p>
+    <!-- Host-only controls -->
+    <div id="host-controls" style="display:none;margin-bottom:.8rem;">
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;">
+        <button class="btn btn-outline" id="change-mode-btn" onclick="showChangeModePanel()" style="flex:1;font-size:1rem;padding:.5rem;">🎮 Change Mode</button>
+        <button class="btn btn-outline" id="toggle-public-btn" onclick="toggleLobbyPublic()" style="flex:1;font-size:1rem;padding:.5rem;">🌐 Make Public</button>
+      </div>
+    </div>
+    <!-- Change Mode Panel (hidden by default) -->
+    <div id="change-mode-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:.8rem;">
+      <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;">Select New Mode</div>
+      <div class="mode-grid" style="gap:.5rem;margin-bottom:.7rem;">
+        <div class="mode-card" id="lmode-unlimited" onclick="selectLobbyMode('unlimited')">
+          <div class="mode-icon">♾️</div><div class="mode-name">Unlimited</div>
+          <div class="mode-desc">Mine until host ends it.</div>
+        </div>
+        <div class="mode-card" id="lmode-timed" onclick="selectLobbyMode('timed')">
+          <div class="mode-icon">⏱️</div><div class="mode-name">Timed Rush</div>
+          <div class="mode-desc">Auto-ends when time runs out.</div>
+          <div class="mode-extra"><select id="lmode-duration" onclick="event.stopPropagation()" onchange="event.stopPropagation()">
+            <option value="180">3 min</option><option value="300" selected>5 min</option>
+            <option value="600">10 min</option><option value="900">15 min</option>
+          </select></div>
+        </div>
+        <div class="mode-card" id="lmode-teams" onclick="selectLobbyMode('teams')">
+          <div class="mode-icon">🤝</div><div class="mode-name">Team Dig</div>
+          <div class="mode-desc">2v2 team scores combine.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn btn-gold" onclick="applyLobbyMode()" style="font-size:1rem;padding:.5rem 1rem;">✅ Apply</button>
+        <button class="btn btn-outline" onclick="document.getElementById('change-mode-panel').style.display='none'" style="font-size:1rem;padding:.5rem 1rem;">✕ Cancel</button>
+      </div>
+    </div>
     <div class="lobby-actions">
-      <button class="btn btn-outline" onclick="goTitle()" style="flex:0 0 auto;width:auto;padding-left:1.2rem;padding-right:1.2rem;">← Back</button>
+      <button class="btn btn-outline" id="leave-lobby-btn" onclick="leaveLobby()" style="flex:0 0 auto;width:auto;padding-left:1.2rem;padding-right:1.2rem;display:none;">🚪 Leave</button>
       <button class="btn btn-gold" id="start-btn" onclick="startGame()">▶ Start Game</button>
     </div>
   </div>
@@ -444,7 +492,8 @@
       <span id="game-timer">⏱ 5:00</span>
       <div style="font-size:.8rem;color:var(--muted);font-family:'Share Tech Mono',monospace" id="topbar-code"></div>
     </div>
-    <button class="topbar-end-btn" id="end-game-btn" onclick="confirmEndGame()">🏁 End Game</button>
+    <button class="topbar-end-btn" id="end-game-btn" onclick="confirmEndGame()" style="display:none;">🏁 End Game</button>
+    <button class="topbar-end-btn" id="leave-game-btn" onclick="confirmLeaveGame()" style="display:none;background:linear-gradient(135deg,#555,#333);">🚪 Leave</button>
   </div>
   <div class="game-layout">
     <div class="mine-area">
@@ -514,7 +563,8 @@
       <div class="awards-title">🏅 Special Awards</div>
       <div id="awards-list"></div>
     </div>
-    <button class="btn btn-gold" onclick="goTitle()">⛏ Play Again</button>
+    <button class="btn btn-gold" onclick="goTitle()">⛏ New Game</button>
+    <div id="end-lobby-countdown" style="margin-top:.8rem;font-size:.85rem;color:var(--muted);font-family:'Share Tech Mono',monospace;text-align:center;"></div>
   </div>
 </div>
 
@@ -568,7 +618,7 @@ const UPGRADES = [
   {id:'void_rig',   name:'Void Drill Rig',    emoji:'🔮', baseCost:100000, costMult:8.5,  maxLevel:2,  type:'autoMine',        gemEmoji:'🔮', desc:'Drills into another dimension. +25 gems/sec AFK.'},
   {id:'gem_forge',  name:'Gem Forge',         emoji:'⚗️',  baseCost:150000, costMult:8.0,  maxLevel:2,  type:'valueMultiplier', desc:'Refine raw gems. +100% sell value per level.'},
   {id:'singularity',name:'Mining Singularity',emoji:'🌀', baseCost:500000, costMult:10.0, maxLevel:1,  type:'autoMine',        gemEmoji:'🔮', desc:'A point of infinite density. +100 gems/sec AFK.'},
-  {id:'satchel',    name:'Gem Satchel',       emoji:'🎒', baseCost:200,    costMult:3.0,  maxLevel:6,  type:'inventoryCap',    desc:'Carry more gems. +25 inventory slots per level.'},
+  {id:'satchel',    name:'Gem Satchel',       emoji:'🎒', baseCost:500,    costMult:4.5,  maxLevel:6,  type:'inventoryCap',    desc:'Doubles your bag capacity each upgrade. Starts at 50 slots.'},
 ];
 const ACHIEVEMENTS = [
   {id:'first_click',   name:'First Strike',         emoji:'⚒',  desc:'Make your first click.'},
@@ -621,6 +671,9 @@ let allPlayers = [];
 let currentTab = 'upgrades';
 let sessionToken = null;
 let selectedMode = 'unlimited'; // 'unlimited' | 'timed' | 'teams'
+let selectedLobbyMode = 'unlimited'; // mode selector inside lobby change-mode panel
+let lobbyIsPublic = false;
+let endCountdownInterval = null;
 let gameMode = 'unlimited';
 let gameTimerInterval = null;
 let sabCooldownInterval = null; // ticks the sabotage cooldown display
@@ -703,6 +756,104 @@ function showJoinCard() {
   document.getElementById('home-card').style.display = 'none';
   document.getElementById('host-card').style.display = 'none';
   document.getElementById('join-card').style.display = '';
+  refreshServerList();
+}
+
+// ─── Server Browser ────────────────────────────────────────────────────────────
+function refreshServerList() {
+  const container = document.getElementById('server-list');
+  if (!container) return;
+  container.innerHTML = '<div class="server-empty">🔍 Searching...</div>';
+  fetch('/api/lobbies').then(r => r.json()).then(lobbies => {
+    container.innerHTML = '';
+    if (!lobbies.length) {
+      container.innerHTML = '<div class="server-empty">No open public lobbies. Be the first to host!</div>';
+      return;
+    }
+    lobbies.forEach(l => {
+      const modeLabel = l.gameMode === 'timed' ? `⏱ Timed (${Math.round(l.gameDuration/60)}m)` : l.gameMode === 'teams' ? '🤝 Teams' : '♾️ Unlimited';
+      const row = document.createElement('div');
+      row.className = 'server-row';
+      row.innerHTML = `
+        <div class="server-row-info">
+          <div class="server-row-code">${l.code}</div>
+          <div class="server-row-meta">${l.hostName} · ${modeLabel} · ${l.playerCount}/${l.maxPlayers} players</div>
+        </div>
+        <button class="server-row-join" onclick="quickJoin('${l.code}',event)">JOIN</button>`;
+      container.appendChild(row);
+    });
+  }).catch(() => {
+    container.innerHTML = '<div class="server-empty">Could not load lobby list.</div>';
+  });
+}
+
+function quickJoin(code) {
+  document.getElementById('join-code').value = code;
+  joinLobby();
+}
+
+// ─── Lobby mode change (host in lobby) ─────────────────────────────────────────
+function showChangeModePanel() {
+  const panel = document.getElementById('change-mode-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  // Sync selected state to current gameMode
+  selectLobbyMode(gameMode);
+}
+
+function selectLobbyMode(mode) {
+  selectedLobbyMode = mode;
+  document.querySelectorAll('[id^="lmode-"]').forEach(c => c.classList.remove('active'));
+  const el = document.getElementById('lmode-' + mode);
+  if (el) el.classList.add('active');
+}
+
+function applyLobbyMode() {
+  const duration = selectedLobbyMode === 'timed'
+    ? parseInt(document.getElementById('lmode-duration').value)
+    : null;
+  socket.emit('lobby:changeMode', { mode: selectedLobbyMode, duration }, (res) => {
+    if (!res || !res.ok) { showToast('❌', 'Error', res?.error || 'Failed'); return; }
+    gameMode = res.mode;
+    document.getElementById('change-mode-panel').style.display = 'none';
+    showToast('🎮', 'Mode Changed', `Now playing: ${res.mode}`);
+  });
+}
+
+function toggleLobbyPublic() {
+  const newVal = !lobbyIsPublic;
+  socket.emit('lobby:setPublic', { isPublic: newVal }, (res) => {
+    if (!res || !res.ok) return;
+    lobbyIsPublic = res.isPublic;
+    const btn = document.getElementById('toggle-public-btn');
+    if (btn) btn.textContent = lobbyIsPublic ? '🔒 Make Private' : '🌐 Make Public';
+    showToast(lobbyIsPublic ? '🌐' : '🔒', lobbyIsPublic ? 'Lobby is Public' : 'Lobby is Private',
+      lobbyIsPublic ? 'Players can find this in the server list.' : 'Players need your code to join.');
+  });
+}
+
+function leaveLobby() {
+  if (!confirm('Leave this lobby?')) return;
+  socket.emit('lobby:leave', {}, (res) => {
+    if (res && !res.ok) { showToast('❌', 'Cannot Leave', res.error); return; }
+    lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+    sessionToken = null;
+    clearSession();
+    showScreen('title-screen');
+    showHomeCard();
+  });
+}
+
+function confirmLeaveGame() {
+  if (!confirm('Leave this game? You\'ll lose your progress in this round.')) return;
+  socket.emit('lobby:leave', {}, (res) => {
+    if (res && !res.ok) { showToast('❌', 'Cannot Leave', res.error); return; }
+    lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
+    sessionToken = null;
+    stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); clearOrbitMiners();
+    clearSession();
+    showScreen('title-screen');
+    showHomeCard();
+  });
 }
 function selectMode(mode) {
   selectedMode = mode;
@@ -749,7 +900,8 @@ function initSocket() {
         if (res.status === 'playing') {
           showScreen('game-screen');
           document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
-          if (isHost) document.getElementById('end-game-btn').style.display = 'block';
+          document.getElementById('end-game-btn').style.display = isHost ? 'block' : 'none';
+          document.getElementById('leave-game-btn').style.display = isHost ? 'none' : 'block';
           initMobilePanel();
           updateStats();
           syncOrbitMiners();
@@ -758,6 +910,8 @@ function initSocket() {
           showToast('🔄', 'Reconnected!', 'Back in the game.');
         } else {
           document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+          document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+          document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
           showScreen('lobby-screen');
           showToast('🔄', 'Reconnected!', 'Back in the lobby.');
         }
@@ -776,7 +930,20 @@ function initSocket() {
   socket.on('lobby:state', (data) => {
     renderLobbySlots(data.players);
     renderAvatarPicker();
+    // Update mode badge if server pushed updated mode
+    if (data.gameMode) updateLobbyModeBadge(data.gameMode, data.gameDuration);
+    // Sync host controls
+    const isNowHost = data.hostId === mySocketId;
+    if (isNowHost !== isHost) isHost = isNowHost;
     document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+    document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+    document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
+    // Public toggle state
+    if (data.isPublic !== undefined) {
+      lobbyIsPublic = data.isPublic;
+      const btn = document.getElementById('toggle-public-btn');
+      if (btn) btn.textContent = lobbyIsPublic ? '🔒 Make Private' : '🌐 Make Public';
+    }
   });
 
   socket.on('lobby:newHost', ({ hostId }) => {
@@ -784,15 +951,51 @@ function initSocket() {
       isHost = true;
       document.getElementById('start-btn').style.display = 'block';
       document.getElementById('end-game-btn').style.display = 'block';
+      document.getElementById('leave-game-btn').style.display = 'none';
+      document.getElementById('host-controls').style.display = 'block';
+      document.getElementById('leave-lobby-btn').style.display = 'none';
       showToast('👑','You are now the host!','The previous host disconnected.');
     }
+  });
+
+  socket.on('lobby:modeChanged', ({ mode, duration }) => {
+    gameMode = mode;
+    updateLobbyModeBadge(mode, duration);
+    showToast('🎮', 'Mode Changed', `Host set: ${mode}`);
+  });
+
+  socket.on('lobby:visibilityChanged', ({ isPublic }) => {
+    lobbyIsPublic = isPublic;
+    const btn = document.getElementById('toggle-public-btn');
+    if (btn) btn.textContent = isPublic ? '🔒 Make Private' : '🌐 Make Public';
+  });
+
+  socket.on('lobby:returnedFromGame', ({ code, mode, duration }) => {
+    // Clear any countdown
+    if (endCountdownInterval) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
+    gameMode = mode;
+    lobbyCode = code;
+    // Reset game state
+    selfState = null; allPlayers = [];
+    stopClientTimer(); stopSabCooldownTick(); removeFrozenOverlay(); clearOrbitMiners();
+    document.getElementById('lobby-code-display').textContent = lobbyCode;
+    document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+    document.getElementById('leave-lobby-btn').style.display = isHost ? 'none' : 'block';
+    document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+    document.getElementById('end-game-btn').style.display = 'none';
+    document.getElementById('leave-game-btn').style.display = 'none';
+    updateLobbyModeBadge(mode, duration);
+    showScreen('lobby-screen');
+    renderAvatarPicker();
+    showToast('🔄', 'Back to Lobby!', 'Get ready for another round.');
   });
 
   socket.on('game:started', ({ mode, duration } = {}) => {
     gameMode = mode || gameMode;
     showScreen('game-screen');
     document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
-    if (isHost) document.getElementById('end-game-btn').style.display = 'block';
+    document.getElementById('end-game-btn').style.display = isHost ? 'block' : 'none';
+    document.getElementById('leave-game-btn').style.display = isHost ? 'none' : 'block';
     initMobilePanel();
     renderUpgrades();
     renderAchievements();
@@ -838,6 +1041,17 @@ function initSocket() {
     stopSabCooldownTick();
     removeFrozenOverlay();
     showEndScreen(results, mode, awards);
+    // Countdown back to lobby
+    let secs = 15;
+    const cdEl = document.getElementById('end-lobby-countdown');
+    function tickCountdown() {
+      if (cdEl) cdEl.textContent = `⏳ Returning to lobby in ${secs}s...`;
+      if (secs <= 0) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
+      secs--;
+    }
+    tickCountdown();
+    if (endCountdownInterval) clearInterval(endCountdownInterval);
+    endCountdownInterval = setInterval(tickCountdown, 1000);
   });
 
   socket.on('sabotage:hit', (data) => {
@@ -863,17 +1077,22 @@ function getPlayerName() {
 function createLobby() {
   const mode = selectedMode;
   const duration = mode === 'timed' ? parseInt(document.getElementById('timed-duration').value) : null;
-  socket.emit('lobby:create', { playerName: getPlayerName(), mode, duration }, (res) => {
+  socket.emit('lobby:create', { playerName: getPlayerName(), mode, duration, isPublic: false }, (res) => {
     if (!res.ok) { showToast('❌','Error', res.error); return; }
     lobbyCode = res.code;
     isHost = true;
     selfState = res.self;
     gameMode = res.mode || 'unlimited';
+    lobbyIsPublic = false;
     sessionToken = res.token;
     saveSession(res.token, res.code, true, selfState.name);
     document.getElementById('lobby-code-display').textContent = lobbyCode;
     document.getElementById('lobby-name-input').value = selfState.name;
     document.getElementById('start-btn').style.display = 'block';
+    document.getElementById('host-controls').style.display = 'block';
+    document.getElementById('leave-lobby-btn').style.display = 'none';
+    const toggleBtn = document.getElementById('toggle-public-btn');
+    if (toggleBtn) toggleBtn.textContent = '🌐 Make Public';
     updateLobbyModeBadge(res.mode, res.duration);
     showScreen('lobby-screen');
     renderAvatarPicker();
@@ -895,6 +1114,8 @@ function joinLobby() {
     document.getElementById('lobby-code-display').textContent = lobbyCode;
     document.getElementById('lobby-name-input').value = selfState.name;
     document.getElementById('start-btn').style.display = 'none';
+    document.getElementById('host-controls').style.display = 'none';
+    document.getElementById('leave-lobby-btn').style.display = 'block';
     updateLobbyModeBadge(res.mode, res.duration);
     showScreen('lobby-screen');
     renderAvatarPicker();
@@ -1209,7 +1430,7 @@ function renderUpgrades() {
         <div class="upg-name">${u.emoji} ${u.name}${afkBadge}${capBadge}</div>
         <div class="upg-level">${lvl}/${u.maxLevel}</div>
       </div>
-      <div class="upg-desc">${u.desc}${isCap ? ` Current max: ${(selfState?.inventoryCap||50)} gems.` : ''}</div>
+      <div class="upg-desc">${u.desc}${isCap ? ` Current: ${(selfState?.inventoryCap||50)} → Next: ${(selfState?.inventoryCap||50)*2} slots.` : ''}</div>
       <div class="upg-footer">
         <div class="upg-cost">${maxed ? '✅ MAXED' : '$' + cost.toLocaleString()}</div>
         <div class="upg-effect">${maxed ? 'Max level' : canAfford ? '▶ Click to buy' : 'Need more cash'}</div>
@@ -1513,12 +1734,13 @@ function showScreen(id) {
 }
 function goTitle() {
   lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
-  sessionToken = null; gameMode = 'unlimited';
+  sessionToken = null; gameMode = 'unlimited'; lobbyIsPublic = false;
   stopClientTimer();
   stopSabCooldownTick();
   removeFrozenOverlay();
   clearSession();
   clearOrbitMiners();
+  if (endCountdownInterval) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
   showScreen('title-screen');
   showHomeCard();
 }
