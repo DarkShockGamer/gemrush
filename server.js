@@ -570,6 +570,24 @@ io.on('connection', (socket) => {
     broadcastLobbyState(lobby);
   });
 
+  socket.on('lobby:chat', ({ text }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+    const trimmed = (text || '').trim().slice(0, 200);
+    if (!trimmed) return callback?.({ ok: false });
+    io.to(lobby.code).emit('lobby:chatMessage', {
+      name: p.state.name,
+      avatar: p.state.avatar,
+      color: p.state.color,
+      text: trimmed,
+      isMe: false, // server doesn't know who "me" is per-client; client handles this
+      socketId: socket.id,
+    });
+    callback?.({ ok: true });
+  });
+
   socket.on('lobby:setAvatar', ({ avatar }, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
