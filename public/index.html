@@ -390,6 +390,7 @@
     .stat-box .stat-val{font-size:1rem;}
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 <div id="toast-container"></div>
@@ -2037,6 +2038,23 @@ function showEndScreen(results, mode, awards) {
     lb.appendChild(div);
   });
   showScreen('end-screen');
+
+  // Confetti burst for the winner
+  if (typeof confetti === 'function') {
+    const winnerColor = (isYouWinner || resolvedMode === 'teams') ? '#f5c842' : (winner?.color || '#f5c842');
+    const colors = [winnerColor, '#ffffff', '#30d97a', '#4090f5', '#e84040'];
+    // Initial big burst from center
+    confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 }, colors, startVelocity: 45, gravity: 0.9, scalar: 1.1 });
+    // Two side cannons
+    setTimeout(() => {
+      confetti({ particleCount: 60, angle: 60,  spread: 55, origin: { x: 0, y: 0.6 }, colors });
+      confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors });
+    }, 250);
+    // Final shower
+    setTimeout(() => {
+      confetti({ particleCount: 80, spread: 120, origin: { y: 0.4 }, colors, gravity: 1.2, scalar: 0.9 });
+    }, 600);
+  }
 
   // Special Awards
   const awardsSection = document.getElementById('final-awards');
