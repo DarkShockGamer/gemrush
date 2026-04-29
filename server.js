@@ -51,6 +51,8 @@ const UPGRADES = [
   { id: 'gem_forge',  name: 'Gem Forge',        emoji: '⚗️',  baseCost: 150000, costMult: 8.0,  maxLevel: 2,  type: 'valueMultiplier', amount: 1.00, desc: 'Refine raw gems. +100% sell value per level.' },
   { id: 'singularity',name: 'Mining Singularity',emoji:'🌀', baseCost: 500000, costMult: 10.0, maxLevel: 1,  type: 'autoMine',        amount: 100,  gemEmoji: '🔮', desc: 'A point of infinite density. +100 gems/sec AFK.' },
   { id: 'satchel',    name: 'Gem Satchel',       emoji:'🎒', baseCost: 500,    costMult: 4.5,  maxLevel: 6,  type: 'inventoryCap',    amount: 0,                    desc: 'Doubles your bag capacity each upgrade. Starts at 50 slots.' },
+  { id: 'gem_insurance', name: 'Gem Insurance',  emoji: '🛡', baseCost: 2500,  costMult: 1.0,  maxLevel: 1,  type: 'sabotageShield',  amount: 1,    desc: 'Blocks the next sabotage you receive. One-time use, recharge by repurchasing.' },
+  { id: 'bulk_sell',  name: 'Bulk Sell',         emoji: '📦', baseCost: 3500,  costMult: 1.0,  maxLevel: 1,  type: 'bulkSell',        amount: 1,    desc: 'Auto-sells your entire inventory every 30 seconds at 90% value. Perfect for AFK play.' },
 ];
 
 const ACHIEVEMENTS = [
@@ -89,6 +91,8 @@ const SABOTAGES = [
   { id: 'freeze',     name: 'Freeze',      emoji: '🧊', baseCost: 300,  desc: 'Halts their auto-miners for 15 seconds.' },
   { id: 'pickpocket', name: 'Pickpocket',  emoji: '🪤', baseCost: 500,  desc: 'Steals 8% of their held inventory gems.' },
   { id: 'cursed_vein',name: 'Cursed Vein', emoji: '☠️', baseCost: 800,  desc: 'Their next 10 clicks are guaranteed misses.' },
+  { id: 'gem_tax',    name: 'Gem Tax',     emoji: '💸', baseCost: 650,  desc: 'Steals 15% of the value of their next sell.' },
+  { id: 'pickaxe_jam',name: 'Pickaxe Jam', emoji: '🔧', baseCost: 450,  desc: 'Halves their gems per click for 20 seconds.' },
 ];
 // Scaling: cost = baseCost * (1 + timesUsed * 0.35)^2
 function sabotageCost(sab, timesUsed) {
@@ -153,6 +157,11 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     sabotageCooldowns: {}, // { sabotageId: timestampMs }
     frozenUntil: 0,        // timestamp when freeze expires
     cursedClicksLeft: 0,   // forced misses remaining
+    sabotageShield: false, // blocks next incoming sabotage
+    pickaxeJamUntil: 0,    // timestamp when pickaxe jam expires
+    gemTaxPending: 0,      // fraction of next sell to steal (0.15 if active)
+    gemTaxAttackerSocketId: null, // who gets the stolen proceeds
+    bulkSellInterval: null,// interval handle for bulk sell auto-timer
   };
 }
 
@@ -197,6 +206,8 @@ function applyUpgrade(player, upgradeId) {
     case 'valueMultiplier': player.valueMultiplier += u.amount; break;
     case 'clickChance':     player.clickChance = Math.min(1, player.clickChance + u.amount); break;
     case 'inventoryCap':    player.inventoryCap = (player.inventoryCap || 50) * 2; break;
+    case 'sabotageShield':  player.sabotageShield = true; break;
+    case 'bulkSell':        player.hasBulkSell = true; break;
   }
 }
 
@@ -260,7 +271,31 @@ function calcInventoryValue(state) {
 function startAutoMineInterval(lobby) {
   lobby.timer = setInterval(() => {
     let anyAutoMiner = false;
+    const now = Date.now();
     for (const [sid, p] of Object.entries(lobby.players)) {
+      // ── Bulk Sell auto-tick ──────────────────────────────────────────
+      if (p.state.hasBulkSell && p.state.bulkSellNextAt && now >= p.state.bulkSellNextAt) {
+        p.state.bulkSellNextAt = now + 30000;
+        const inv = p.state.inventory;
+        let autoEarned = 0;
+        for (const gem of GEM_TYPES) {
+          const count = inv[gem.name] || 0;
+          if (count <= 0) continue;
+          const saleValue = Math.floor(count * Math.floor(gem.value * p.state.valueMultiplier) * 0.9);
+          autoEarned += saleValue;
+          p.state.totalSold = p.state.totalSold || {};
+          p.state.totalSold[gem.name] = (p.state.totalSold[gem.name] || 0) + count;
+          p.state.totalSellCount = (p.state.totalSellCount || 0) + 1;
+          delete inv[gem.name];
+        }
+        if (autoEarned > 0) {
+          p.state.profit += autoEarned;
+          p.state.totalEarned += autoEarned;
+          io.to(sid).emit('bulksell:triggered', { earned: autoEarned });
+          io.to(sid).emit('player:self', playerSelfPayload(p.state));
+          anyAutoMiner = true;
+        }
+      }
       if (p.state.autoMine > 0) {
         // Skip auto-mine if frozen
         if (p.state.frozenUntil && Date.now() < p.state.frozenUntil) continue;
@@ -302,6 +337,11 @@ function playerSelfPayload(state) {
     sabotageCooldowns: state.sabotageCooldowns || {},
     frozenUntil: state.frozenUntil || 0,
     cursedClicksLeft: state.cursedClicksLeft || 0,
+    pickaxeJamUntil: state.pickaxeJamUntil || 0,
+    gemTaxPending: state.gemTaxPending || 0,
+    sabotageShield: state.sabotageShield || false,
+    hasBulkSell: state.hasBulkSell || false,
+    bulkSellNextAt: state.bulkSellNextAt || 0,
   };
 }
 
@@ -622,7 +662,10 @@ io.on('connection', (socket) => {
       return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: false, full: true, self: playerSelfPayload(p.state) });
     }
 
-    const count = Math.min(Math.ceil(p.state.gemsPerClick), cap - held);
+    // Pickaxe jam: halve gems per click
+    const isJammed = p.state.pickaxeJamUntil && Date.now() < p.state.pickaxeJamUntil;
+    const effectiveGpc = isJammed ? Math.max(1, p.state.gemsPerClick / 2) : p.state.gemsPerClick;
+    const count = Math.min(Math.ceil(effectiveGpc), cap - held);
     const drops = [];
     for (let i = 0; i < count; i++) {
       const gem = rollGem(p.state);
@@ -666,7 +709,24 @@ io.on('connection', (socket) => {
     const held = p.state.inventory[gemName] || 0;
     const toSell = quantity === -1 ? held : Math.min(quantity, held);
     if (toSell <= 0) return callback?.({ ok: false, error: 'None to sell.' });
-    const earned = toSell * Math.floor(gem.value * p.state.valueMultiplier);
+    let earned = toSell * Math.floor(gem.value * p.state.valueMultiplier);
+
+    // Apply gem tax if active
+    let taxAmount = 0;
+    if (p.state.gemTaxPending > 0) {
+      taxAmount = Math.floor(earned * p.state.gemTaxPending);
+      earned -= taxAmount;
+      const attackerSid = p.state.gemTaxAttackerSocketId;
+      p.state.gemTaxPending = 0;
+      p.state.gemTaxAttackerSocketId = null;
+      // Pay the attacker if still in lobby
+      if (attackerSid && lobby.players[attackerSid]) {
+        lobby.players[attackerSid].state.profit += taxAmount;
+        io.to(attackerSid).emit('player:self', playerSelfPayload(lobby.players[attackerSid].state));
+      }
+      io.to(socket.id).emit('sabotage:tax_triggered', { taxAmount });
+    }
+
     p.state.inventory[gemName] = held - toSell;
     if (p.state.inventory[gemName] === 0) delete p.state.inventory[gemName];
     p.state.profit += earned;
@@ -695,6 +755,11 @@ io.on('connection', (socket) => {
     p.state.upgradeLevels[upgradeId] = currentLevel + 1;
     applyUpgrade(p.state, upgradeId);
     p.state.upgradesBought++;
+
+    // If buying bulk_sell, set the next auto-sell timestamp
+    if (upgradeId === 'bulk_sell') {
+      p.state.bulkSellNextAt = Date.now() + 30000;
+    }
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     callback?.({ ok: true, self: playerSelfPayload(p.state) });
@@ -731,7 +796,18 @@ io.on('connection', (socket) => {
     attacker.state.sabotageCooldowns = attacker.state.sabotageCooldowns || {};
     attacker.state.sabotageCooldowns[sabotageId] = now + 30000;
 
-    // Apply effect
+    // Apply effect — check shield first
+    if (target.state.sabotageShield) {
+      target.state.sabotageShield = false;
+      // Downgrade shield (allow repurchase)
+      target.state.upgradeLevels['gem_insurance'] = 0;
+      io.to(targetSocketId).emit('sabotage:blocked', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar });
+      io.to(socket.id).emit('player:self', playerSelfPayload(attacker.state));
+      io.to(targetSocketId).emit('player:self', playerSelfPayload(target.state));
+      broadcastGameState(lobby);
+      return callback?.({ ok: true, cost, blocked: true, self: playerSelfPayload(attacker.state) });
+    }
+
     switch (sabotageId) {
       case 'freeze':
         target.state.frozenUntil = now + 15000;
@@ -752,6 +828,17 @@ io.on('connection', (socket) => {
         target.state.cursedClicksLeft = (target.state.cursedClicksLeft || 0) + 10;
         io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar });
         break;
+      case 'gem_tax':
+        target.state.gemTaxPending = 0.15;
+        target.state.gemTaxAttackerSocketId = socket.id;
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar });
+        break;
+      case 'pickaxe_jam': {
+        const jamDuration = 20000;
+        target.state.pickaxeJamUntil = now + jamDuration;
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar, duration: 20 });
+        break;
+      }
     }
 
     io.to(socket.id).emit('player:self', playerSelfPayload(attacker.state));
