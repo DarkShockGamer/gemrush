@@ -1560,17 +1560,27 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', e => {
     // Ignore if typing in an input/textarea
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
-    const gameVisible = document.getElementById('game-screen')?.style.display !== 'none'
-      && document.getElementById('game-screen')?.classList.contains('active');
+    const gameVisible = document.getElementById('game-screen')?.classList.contains('active');
     if (!gameVisible) return;
 
     if (e.code === 'Space' || e.key === ' ') {
       e.preventDefault();
-      const mineBtn = document.getElementById('mine-btn');
-      if (mineBtn && !mineBtn.disabled) mineBtn.click();
+      if (e.repeat) return; // don't re-trigger while held
+      startCharge(e);
     } else if (e.code === 'KeyS' || e.key === 's' || e.key === 'S') {
       const sellBtn = document.getElementById('sell-all-btn');
       if (sellBtn && !sellBtn.disabled) sellAll();
+    }
+  });
+
+  document.addEventListener('keyup', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    const gameVisible = document.getElementById('game-screen')?.classList.contains('active');
+    if (!gameVisible) return;
+
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      releaseCharge(e);
     }
   });
 });
