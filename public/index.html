@@ -1108,17 +1108,14 @@ function initSocket() {
     const numEl   = document.getElementById('countdown-number');
     if (!overlay || !numEl) return;
     overlay.classList.add('active');
-    // Re-trigger animation by cloning the element
-    const clone = numEl.cloneNode(true);
-    clone.textContent = count;
-    numEl.parentNode.replaceChild(clone, clone); // no-op; use below trick
+    // Re-trigger the pop animation cleanly
     numEl.textContent = count;
     numEl.style.animation = 'none';
-    void numEl.offsetWidth; // reflow
-    numEl.style.animation = '';
-    // Audio cue
+    void numEl.offsetWidth; // force reflow
+    numEl.style.animation = 'countPop .55s cubic-bezier(.16,1,.3,1) both';
+    // Audio + haptic cue
     AudioEngine.click();
-    haptic(40);
+    haptic(count === 1 ? [30,20,40] : 40);
   });
 
   socket.on('game:started', ({ mode, duration } = {}) => {
