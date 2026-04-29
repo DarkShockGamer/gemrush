@@ -264,7 +264,56 @@
   .team-score-bar .ts-label{font-weight:700;}
   .team-score-bar .ts-val{flex:1;text-align:right;}
 
-  /* ── MOBILE ── */
+  /* ── SABOTAGE TAB ── */
+  .sab-section { margin-bottom: 1rem; }
+  .sab-section-title { font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem; }
+  .sab-target-row { display:flex;align-items:center;gap:.5rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;margin-bottom:.4rem; }
+  .sab-target-avatar { font-size:1.2rem; }
+  .sab-target-name { flex:1;font-weight:700;font-size:.9rem; }
+  .sab-btn { font-family:'Bebas Neue',sans-serif;font-size:.8rem;letter-spacing:.08em;background:linear-gradient(135deg,var(--ruby),#c02020);color:#fff;border:none;border-radius:5px;padding:.2rem .6rem;cursor:pointer;transition:all .12s;white-space:nowrap; }
+  .sab-btn:hover:not(:disabled) { filter:brightness(1.15);transform:translateY(-1px); }
+  .sab-btn:disabled { opacity:.4;cursor:not-allowed; }
+  .sab-card { background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.8rem;margin-bottom:.5rem; }
+  .sab-card-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem; }
+  .sab-card-name { font-weight:700;font-size:.95rem; }
+  .sab-card-cost { font-family:'Share Tech Mono',monospace;font-size:.8rem;color:var(--ruby); }
+  .sab-card-desc { font-size:.78rem;color:var(--muted);margin-bottom:.5rem; }
+  .sab-card-footer { display:flex;justify-content:space-between;align-items:center;gap:.5rem; }
+  .sab-uses { font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted); }
+  .sab-cooldown { font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--gold); }
+  .sab-no-targets { font-size:.8rem;color:var(--muted);font-style:italic;text-align:center;padding:1rem 0; }
+
+  /* Sabotage hit overlay */
+  .sab-hit-overlay { position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;pointer-events:none; }
+  .sab-hit-box { background:rgba(232,64,64,.15);border:2px solid var(--ruby);border-radius:16px;padding:1.5rem 2rem;text-align:center;animation:sabHitIn .4s cubic-bezier(.16,1,.3,1) both, sabHitOut .5s 2.5s ease-in forwards; }
+  @keyframes sabHitIn  { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
+  @keyframes sabHitOut { from{opacity:1} to{opacity:0} }
+  .sab-hit-icon { font-size:3rem;margin-bottom:.4rem; }
+  .sab-hit-title { font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--ruby);letter-spacing:.1em; }
+  .sab-hit-msg { font-size:.9rem;color:var(--text);margin-top:.3rem; }
+
+  /* Rare find broadcast banner */
+  .rare-banner { position:fixed;top:4rem;left:50%;transform:translateX(-50%);z-index:8000;background:var(--surface);border:2px solid var(--gold);border-radius:12px;padding:.7rem 1.5rem;text-align:center;animation:rareBannerIn .4s cubic-bezier(.16,1,.3,1) both, rareBannerOut .5s 4s ease-in forwards;pointer-events:none;white-space:nowrap; }
+  .rare-banner.void-find { border-color:#a060ff;box-shadow:0 0 30px rgba(160,96,255,.4); }
+  @keyframes rareBannerIn  { from{opacity:0;transform:translateX(-50%) translateY(-20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  @keyframes rareBannerOut { from{opacity:1} to{opacity:0} }
+  .rare-banner-gem { font-size:1.8rem; }
+  .rare-banner-text { font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em; }
+  .rare-banner-sub { font-size:.8rem;color:var(--muted);margin-top:.15rem; }
+
+  /* Special awards on end screen */
+  .awards-section { margin-bottom:1.2rem;text-align:left; }
+  .awards-title { font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.1em;color:var(--gold);margin-bottom:.5rem;text-align:center; }
+  .award-row { display:flex;align-items:flex-start;gap:.7rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.6rem .8rem;margin-bottom:.4rem; }
+  .award-emoji { font-size:1.4rem;flex-shrink:0; }
+  .award-title { font-weight:700;font-size:.88rem;color:var(--gold); }
+  .award-desc { font-size:.78rem;color:var(--muted);margin-top:.1rem; }
+
+  /* Frozen screen tint */
+  .frozen-overlay { position:fixed;inset:0;z-index:4000;background:rgba(100,200,255,.06);border:3px solid rgba(100,200,255,.3);pointer-events:none;animation:frozenPulse 1s ease-in-out infinite alternate; }
+  @keyframes frozenPulse { from{opacity:.6} to{opacity:1} }
+  .frozen-banner { position:fixed;top:4.5rem;left:50%;transform:translateX(-50%);z-index:4001;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.15em;color:#80d8ff;background:rgba(0,80,120,.8);border:1px solid #80d8ff;border-radius:8px;padding:.3rem 1rem;pointer-events:none; }
+
   @media(max-width:700px){
     #game-screen{height:100dvh;}
     .game-layout{grid-template-columns:1fr;grid-template-rows:1fr auto;height:100%;}
@@ -443,10 +492,12 @@
       <div class="panel-tabs">
         <div class="panel-tab active" onclick="switchTab('upgrades',this)">Upgrades</div>
         <div class="panel-tab" onclick="switchTab('players',this)">Players</div>
+        <div class="panel-tab" onclick="switchTab('sabotage',this)">😈 Dirty</div>
         <div class="panel-tab" onclick="switchTab('achievements',this)">Badges</div>
       </div>
       <div class="panel-content" id="panel-upgrades"></div>
       <div class="panel-content" id="panel-players" style="display:none"></div>
+      <div class="panel-content" id="panel-sabotage" style="display:none"></div>
       <div class="panel-content" id="panel-achievements" style="display:none"></div>
     </div>
   </div>
@@ -459,6 +510,10 @@
     <h2>Game Over!</h2>
     <div class="winner-name" id="winner-display"></div>
     <div class="leaderboard" id="final-leaderboard"></div>
+    <div class="awards-section" id="final-awards" style="display:none">
+      <div class="awards-title">🏅 Special Awards</div>
+      <div id="awards-list"></div>
+    </div>
     <button class="btn btn-gold" onclick="goTitle()">⛏ Play Again</button>
   </div>
 </div>
@@ -547,6 +602,15 @@ const ACHIEVEMENTS = [
   {id:'singularity_u', name:'Singularity Achieved', emoji:'🌀', desc:'Unlock the Mining Singularity.'},
 ];
 
+const SABOTAGES = [
+  { id: 'freeze',      name: 'Freeze',       emoji: '🧊', baseCost: 300,  desc: 'Halts their auto-miners for 15 seconds.' },
+  { id: 'pickpocket',  name: 'Pickpocket',   emoji: '🪤', baseCost: 500,  desc: 'Steals 8% of their held inventory gems.' },
+  { id: 'cursed_vein', name: 'Cursed Vein',  emoji: '☠️', baseCost: 800,  desc: 'Their next 10 clicks are guaranteed misses.' },
+];
+function sabotageCostClient(sab, timesUsed) {
+  return Math.floor(sab.baseCost * Math.pow(1 + timesUsed * 0.35, 2));
+}
+
 // ─── State ─────────────────────────────────────────────────────────────────────
 let socket;
 let mySocketId = null;
@@ -559,6 +623,10 @@ let sessionToken = null;
 let selectedMode = 'unlimited'; // 'unlimited' | 'timed' | 'teams'
 let gameMode = 'unlimited';
 let gameTimerInterval = null;
+let sabCooldownInterval = null; // ticks the sabotage cooldown display
+let frozenOverlayEl = null;
+let frozenBannerEl = null;
+let frozenCheckInterval = null;
 // Track which orbiting miner elements exist
 const orbitMiners = {}; // upgradeId -> DOM element
 
@@ -728,12 +796,14 @@ function initSocket() {
     initMobilePanel();
     renderUpgrades();
     renderAchievements();
+    startSabCooldownTick();
     if (gameMode === 'timed' && duration) startClientTimer(duration);
   });
 
   socket.on('game:state', ({ players }) => {
     allPlayers = players;
     if (currentTab === 'players') renderPlayers();
+    if (currentTab === 'sabotage') renderSabotage();
   });
 
   socket.on('player:self', (state) => {
@@ -742,6 +812,13 @@ function initSocket() {
     syncOrbitMiners();
     if (currentTab === 'upgrades') renderUpgrades();
     if (currentTab === 'achievements') renderAchievements();
+    if (currentTab === 'sabotage') renderSabotage();
+    // Frozen overlay
+    if (state.frozenUntil && Date.now() < state.frozenUntil) {
+      showFrozenOverlay(state.frozenUntil);
+    } else {
+      removeFrozenOverlay();
+    }
   });
 
   socket.on('achievements:unlocked', (list) => {
@@ -755,10 +832,21 @@ function initSocket() {
     spawnAfkGems(drops);
   });
 
-  socket.on('game:ended', ({ results, mode }) => {
+  socket.on('game:ended', ({ results, mode, awards }) => {
     stopClientTimer();
     clearOrbitMiners();
-    showEndScreen(results, mode);
+    stopSabCooldownTick();
+    removeFrozenOverlay();
+    showEndScreen(results, mode, awards);
+  });
+
+  socket.on('sabotage:hit', (data) => {
+    showSabotageHit(data);
+    // The server also emits player:self which will update selfState
+  });
+
+  socket.on('game:rareFind', (data) => {
+    showRareFindBanner(data);
   });
 }
 
@@ -1333,10 +1421,12 @@ function switchTab(tab, el) {
   el.classList.add('active');
   document.getElementById('panel-upgrades').style.display     = tab==='upgrades'     ? 'block':'none';
   document.getElementById('panel-players').style.display      = tab==='players'      ? 'block':'none';
+  document.getElementById('panel-sabotage').style.display     = tab==='sabotage'     ? 'block':'none';
   document.getElementById('panel-achievements').style.display  = tab==='achievements' ? 'block':'none';
   if (tab==='players') renderPlayers();
   if (tab==='achievements') renderAchievements();
   if (tab==='upgrades') renderUpgrades();
+  if (tab==='sabotage') renderSabotage();
 }
 
 function initMobilePanel() {
@@ -1356,7 +1446,7 @@ function initMobilePanel() {
 }
 
 // ─── End screen ────────────────────────────────────────────────────────────────
-function showEndScreen(results, mode) {
+function showEndScreen(results, mode, awards) {
   const medals = ['🥇','🥈','🥉','4️⃣'];
   const winner = results[0];
   const myName = selfState?.name || '';
@@ -1386,6 +1476,22 @@ function showEndScreen(results, mode) {
     lb.appendChild(div);
   });
   showScreen('end-screen');
+
+  // Special Awards
+  const awardsSection = document.getElementById('final-awards');
+  const awardsList = document.getElementById('awards-list');
+  if (awards && awards.length) {
+    awardsList.innerHTML = '';
+    awards.forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'award-row';
+      div.innerHTML = `<div class="award-emoji">${a.emoji}</div><div><div class="award-title">${a.title}</div><div class="award-desc">${a.desc}</div></div>`;
+      awardsList.appendChild(div);
+    });
+    awardsSection.style.display = 'block';
+  } else {
+    awardsSection.style.display = 'none';
+  }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -1409,6 +1515,8 @@ function goTitle() {
   lobbyCode = null; isHost = false; selfState = null; allPlayers = [];
   sessionToken = null; gameMode = 'unlimited';
   stopClientTimer();
+  stopSabCooldownTick();
+  removeFrozenOverlay();
   clearSession();
   clearOrbitMiners();
   showScreen('title-screen');
@@ -1422,6 +1530,141 @@ function showToast(icon, title, msg) {
   c.appendChild(t);
   setTimeout(() => t.style.opacity='0', 2800);
   setTimeout(() => t.remove(), 3200);
+}
+
+// ─── Sabotage ──────────────────────────────────────────────────────────────────
+function renderSabotage() {
+  const container = document.getElementById('panel-sabotage');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const others = allPlayers.filter(p => p.socketId !== mySocketId);
+  if (!others.length) {
+    const msg = document.createElement('div');
+    msg.className = 'sab-no-targets';
+    msg.textContent = 'No other players to target... yet! 😈';
+    container.appendChild(msg);
+    return;
+  }
+
+  const cash = selfState?.profit || 0;
+  const now = Date.now();
+
+  SABOTAGES.forEach(sab => {
+    const timesUsed = selfState?.sabotageUses?.[sab.id] || 0;
+    const cost = sabotageCostClient(sab, timesUsed);
+    const cooldownUntil = selfState?.sabotageCooldowns?.[sab.id] || 0;
+    const onCooldown = now < cooldownUntil;
+    const secsLeft = onCooldown ? Math.ceil((cooldownUntil - now) / 1000) : 0;
+    const canAfford = cash >= cost;
+
+    const card = document.createElement('div');
+    card.className = 'sab-card';
+    card.innerHTML = `
+      <div class="sab-card-header">
+        <div class="sab-card-name">${sab.emoji} ${sab.name}</div>
+        <div class="sab-card-cost">$${cost.toLocaleString()}</div>
+      </div>
+      <div class="sab-card-desc">${sab.desc}</div>
+      <div class="sab-card-footer">
+        <div>
+          <span class="sab-uses">Used: ${timesUsed}×</span>
+          ${onCooldown ? `<span class="sab-cooldown" id="sab-cd-${sab.id}"> · ⏳ ${secsLeft}s</span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.3rem">
+          ${others.map(p => `
+            <button class="sab-btn" id="sab-${sab.id}-${p.socketId}"
+              onclick="useSabotage('${sab.id}','${p.socketId}')"
+              ${onCooldown || !canAfford ? 'disabled' : ''}>
+              ${p.avatar} ${p.name}
+            </button>`).join('')}
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+function useSabotage(sabotageId, targetSocketId) {
+  socket.emit('game:sabotage', { sabotageId, targetSocketId }, (res) => {
+    if (!res.ok) { showToast('❌', 'Sabotage Failed', res.error); return; }
+    selfState = res.self;
+    const sab = SABOTAGES.find(s => s.id === sabotageId);
+    const target = allPlayers.find(p => p.socketId === targetSocketId);
+    showToast(sab.emoji, sab.name + ' deployed!', `Cost $${res.cost.toLocaleString()} · targeting ${target?.name || 'them'}`);
+    updateStats();
+    renderSabotage();
+  });
+}
+
+function startSabCooldownTick() {
+  stopSabCooldownTick();
+  sabCooldownInterval = setInterval(() => {
+    if (currentTab === 'sabotage') renderSabotage();
+  }, 1000);
+}
+function stopSabCooldownTick() {
+  if (sabCooldownInterval) { clearInterval(sabCooldownInterval); sabCooldownInterval = null; }
+}
+
+// ─── Frozen overlay ─────────────────────────────────────────────────────────────
+function showFrozenOverlay(frozenUntil) {
+  if (frozenOverlayEl) return; // already showing
+  frozenOverlayEl = document.createElement('div');
+  frozenOverlayEl.className = 'frozen-overlay';
+  document.body.appendChild(frozenOverlayEl);
+
+  frozenBannerEl = document.createElement('div');
+  frozenBannerEl.className = 'frozen-banner';
+  frozenBannerEl.textContent = '🧊 AUTO-MINERS FROZEN!';
+  document.body.appendChild(frozenBannerEl);
+
+  frozenCheckInterval = setInterval(() => {
+    if (Date.now() >= frozenUntil) removeFrozenOverlay();
+  }, 500);
+}
+function removeFrozenOverlay() {
+  if (frozenOverlayEl) { frozenOverlayEl.remove(); frozenOverlayEl = null; }
+  if (frozenBannerEl) { frozenBannerEl.remove(); frozenBannerEl = null; }
+  if (frozenCheckInterval) { clearInterval(frozenCheckInterval); frozenCheckInterval = null; }
+}
+
+// ─── Sabotage hit notification ──────────────────────────────────────────────────
+function showSabotageHit(data) {
+  const msgs = {
+    freeze:      `🧊 Your auto-miners are frozen for 15 seconds!`,
+    pickpocket:  `🪤 ${data.stolen ?? 'Some'} gems were stolen from your inventory!`,
+    cursed_vein: `☠️ Your next 10 clicks will miss!`,
+  };
+  const icons = { freeze:'🧊', pickpocket:'🪤', cursed_vein:'☠️' };
+  const overlay = document.createElement('div');
+  overlay.className = 'sab-hit-overlay';
+  overlay.innerHTML = `<div class="sab-hit-box">
+    <div class="sab-hit-icon">${icons[data.sabotageId] || '💥'}</div>
+    <div class="sab-hit-title">SABOTAGED!</div>
+    <div class="sab-hit-msg">${data.attackerAvatar} <strong>${data.attackerName}</strong> used ${data.sabotageId.replace('_',' ')} on you!</div>
+    <div class="sab-hit-msg" style="margin-top:.3rem;color:var(--ruby)">${msgs[data.sabotageId] || ''}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 3200);
+
+  if (data.sabotageId === 'freeze' && selfState?.frozenUntil) {
+    showFrozenOverlay(selfState.frozenUntil);
+  }
+}
+
+// ─── Rare find banner ───────────────────────────────────────────────────────────
+function showRareFindBanner(data) {
+  // Remove existing banners
+  document.querySelectorAll('.rare-banner').forEach(b => b.remove());
+  const banner = document.createElement('div');
+  banner.className = 'rare-banner' + (data.isVoid ? ' void-find' : '');
+  const isMe = data.finderName === (selfState?.name || '');
+  banner.innerHTML = `
+    <div class="rare-banner-gem">${data.gemEmoji}</div>
+    <div class="rare-banner-text">${data.isVoid ? '🌌 VOID GEM FOUND!' : '✨ RARE FIND!'}</div>
+    <div class="rare-banner-sub">${data.finderAvatar} ${isMe ? 'YOU found' : data.finderName + ' found'} a <strong>${data.gemName}</strong>!</div>`;
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 4700);
 }
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
