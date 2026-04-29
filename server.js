@@ -19,12 +19,12 @@ const MAX_PLAYERS = 4;
 const GEM_TYPES = [
   { name: 'Coal',      emoji: '🪨', color: '#5a4a3a', value: 1,    rarity: 0.45  },
   { name: 'Quartz',    emoji: '🔹', color: '#aaddff', value: 3,    rarity: 0.25  },
-  { name: 'Ruby',      emoji: '♦️',  color: '#e84040', value: 8,    rarity: 0.15  },
-  { name: 'Emerald',   emoji: '💚', color: '#30d97a', value: 18,   rarity: 0.09  },
-  { name: 'Sapphire',  emoji: '🔷', color: '#4090f5', value: 40,   rarity: 0.04  },
-  { name: 'Diamond',   emoji: '💎', color: '#c0f0ff', value: 100,  rarity: 0.015 },
-  { name: 'Moonstone', emoji: '🌕', color: '#e8d8ff', value: 300,  rarity: 0.004 },
-  { name: 'Void Gem',  emoji: '🔮', color: '#9040f0', value: 1000, rarity: 0.001 },
+  { name: 'Ruby',      emoji: '♦️',  color: '#e84040', value: 8,    rarity: 0.015  },
+  { name: 'Emerald',   emoji: '💚', color: '#30d97a', value: 18,   rarity: 0.01  },
+  { name: 'Sapphire',  emoji: '🔷', color: '#4090f5', value: 40,   rarity: 0.005  },
+  { name: 'Diamond',   emoji: '💎', color: '#c0f0ff', value: 100,  rarity: 0.001 },
+  { name: 'Moonstone', emoji: '🌕', color: '#e8d8ff', value: 300,  rarity: 0.0004 },
+  { name: 'Void Gem',  emoji: '🔮', color: '#9040f0', value: 1000, rarity: 0.0001 },
 ];
 
 const UPGRADES = [
