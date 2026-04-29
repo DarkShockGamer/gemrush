@@ -1,4 +1,4 @@
-const express = require('express');
+\const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
@@ -85,6 +85,16 @@ const ACHIEVEMENTS = [
   { id: 'singularity_u', name: 'Singularity Achieved',emoji: '🌀', check: s => (s.upgradeLevels?.['singularity'] || 0) >= 1 },
 ];
 
+const SABOTAGES = [
+  { id: 'freeze',     name: 'Freeze',      emoji: '🧊', baseCost: 300,  desc: 'Halts their auto-miners for 15 seconds.' },
+  { id: 'pickpocket', name: 'Pickpocket',  emoji: '🪤', baseCost: 500,  desc: 'Steals 8% of their held inventory gems.' },
+  { id: 'cursed_vein',name: 'Cursed Vein', emoji: '☠️', baseCost: 800,  desc: 'Their next 10 clicks are guaranteed misses.' },
+];
+// Scaling: cost = baseCost * (1 + timesUsed * 0.35)^2
+function sabotageCost(sab, timesUsed) {
+  return Math.floor(sab.baseCost * Math.pow(1 + timesUsed * 0.35, 2));
+}
+
 const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️','💎','🔮','⚗️','🌋','🦅','🐺','🐸','🧨','👑','🧲','🪄','⚡','🌀','🔥','❄️','☠️'];
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
@@ -121,6 +131,10 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     upgradeLevels: {},
     totalSold: {},
     totalSellCount: 0,
+    sabotageUses: {},      // { sabotageId: timesUsed }
+    sabotageCooldowns: {}, // { sabotageId: timestampMs }
+    frozenUntil: 0,        // timestamp when freeze expires
+    cursedClicksLeft: 0,   // forced misses remaining
   };
 }
 
@@ -226,6 +240,8 @@ function startAutoMineInterval(lobby) {
     let anyAutoMiner = false;
     for (const [sid, p] of Object.entries(lobby.players)) {
       if (p.state.autoMine > 0) {
+        // Skip auto-mine if frozen
+        if (p.state.frozenUntil && Date.now() < p.state.frozenUntil) continue;
         anyAutoMiner = true;
         const drops = [];
         for (let i = 0; i < p.state.autoMine; i++) {
@@ -260,7 +276,52 @@ function playerSelfPayload(state) {
     inventory: state.inventory,
     achievementsUnlocked: state.achievementsUnlocked,
     upgradeLevels: state.upgradeLevels,
+    sabotageUses: state.sabotageUses || {},
+    sabotageCooldowns: state.sabotageCooldowns || {},
+    frozenUntil: state.frozenUntil || 0,
+    cursedClicksLeft: state.cursedClicksLeft || 0,
   };
+}
+
+function computeAwards(lobby) {
+  const players = Object.values(lobby.players).map(p => p.state);
+  if (players.length < 2) return [];
+  const awards = [];
+
+  // 🐢 Slowest Seller — most gems still in inventory at end
+  const sorted_unsold = [...players].sort((a,b) => {
+    const ua = Object.values(a.inventory).reduce((s,v)=>s+v,0);
+    const ub = Object.values(b.inventory).reduce((s,v)=>s+v,0);
+    return ub - ua;
+  });
+  const hoardCount = Object.values(sorted_unsold[0].inventory).reduce((s,v)=>s+v,0);
+  if (hoardCount > 0) awards.push({ emoji:'🐢', title:'Slowest Seller', desc:`${sorted_unsold[0].name} had ${hoardCount} gems still in their bag!` });
+
+  // 🎰 Luckiest Miner — most Void Gems ever found
+  const sorted_void = [...players].sort((a,b) =>
+    ((b.inventory['Void Gem']||0) + (b.totalSold?.['Void Gem']||0)) - ((a.inventory['Void Gem']||0) + (a.totalSold?.['Void Gem']||0))
+  );
+  const voidCount = (sorted_void[0].inventory['Void Gem']||0) + (sorted_void[0].totalSold?.['Void Gem']||0);
+  if (voidCount > 0) awards.push({ emoji:'🎰', title:'Luckiest Miner', desc:`${sorted_void[0].name} found ${voidCount} Void Gem${voidCount>1?'s':''}!` });
+
+  // 🤖 Most AFK — highest auto-mine rate
+  const sorted_afk = [...players].sort((a,b) => b.autoMine - a.autoMine);
+  if (sorted_afk[0].autoMine > 0) awards.push({ emoji:'🤖', title:'AFK Champion', desc:`${sorted_afk[0].name} reached ${sorted_afk[0].autoMine} gems/sec on auto-mine.` });
+
+  // 😈 Chaos Agent — most sabotages used
+  const sorted_sab = [...players].sort((a,b) => {
+    const ua = Object.values(a.sabotageUses||{}).reduce((s,v)=>s+v,0);
+    const ub = Object.values(b.sabotageUses||{}).reduce((s,v)=>s+v,0);
+    return ub - ua;
+  });
+  const sabCount = Object.values(sorted_sab[0].sabotageUses||{}).reduce((s,v)=>s+v,0);
+  if (sabCount > 0) awards.push({ emoji:'😈', title:'Chaos Agent', desc:`${sorted_sab[0].name} sabotaged others ${sabCount} time${sabCount>1?'s':''}!` });
+
+  // 🖱️ Click Maniac — most clicks
+  const sorted_clicks = [...players].sort((a,b) => b.totalClicks - a.totalClicks);
+  awards.push({ emoji:'🖱️', title:'Click Maniac', desc:`${sorted_clicks[0].name} clicked ${sorted_clicks[0].totalClicks.toLocaleString()} times!` });
+
+  return awards;
 }
 
 function endGame(lobby) {
@@ -294,7 +355,7 @@ function endGame(lobby) {
     results.sort((a, b) => b.totalEarned - a.totalEarned);
   }
 
-  io.to(lobby.code).emit('game:ended', { results, mode: lobby.gameMode });
+  io.to(lobby.code).emit('game:ended', { results, mode: lobby.gameMode, awards: computeAwards(lobby) });
   setTimeout(() => lobbies.delete(lobby.code), 120_000);
 }
 
@@ -440,6 +501,14 @@ io.on('connection', (socket) => {
 
     p.state.totalClicks++;
 
+    // Cursed vein: forced misses
+    if (p.state.cursedClicksLeft > 0) {
+      p.state.cursedClicksLeft--;
+      const newAch = checkAchievements(p.state);
+      if (newAch.length) socket.emit('achievements:unlocked', newAch);
+      return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: true, cursed: true, self: playerSelfPayload(p.state) });
+    }
+
     const chance = p.state.clickChance || 0.55;
     if (Math.random() > chance) {
       const newAch = checkAchievements(p.state);
@@ -466,6 +535,20 @@ io.on('connection', (socket) => {
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     callback?.({ ok: true, gemsAdded: count, drops, miss: false, self: playerSelfPayload(p.state) });
+
+    // Broadcast very rare finds (Moonstone / Void Gem) to entire lobby
+    drops.forEach(d => {
+      const gemDef = GEM_TYPES.find(g => g.name === d.name);
+      if (gemDef && gemDef.rarity <= 0.004) {
+        io.to(lobby.code).emit('game:rareFind', {
+          finderName: p.state.name,
+          finderAvatar: p.state.avatar,
+          gemName: d.name,
+          gemEmoji: d.emoji,
+          isVoid: gemDef.rarity <= 0.001,
+        });
+      }
+    });
   });
 
   socket.on('game:sell', ({ gemName, quantity }, callback) => {
@@ -510,6 +593,66 @@ io.on('connection', (socket) => {
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     callback?.({ ok: true, self: playerSelfPayload(p.state) });
+  });
+
+  // ── Sabotage ────────────────────────────────────────────────────────────────
+  socket.on('game:sabotage', ({ sabotageId, targetSocketId }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'playing') return callback?.({ ok: false, error: 'Not in game.' });
+    const attacker = lobby.players[socket.id];
+    const target   = lobby.players[targetSocketId];
+    if (!attacker || !target) return callback?.({ ok: false, error: 'Player not found.' });
+    if (targetSocketId === socket.id) return callback?.({ ok: false, error: 'Cannot sabotage yourself.' });
+
+    const sab = SABOTAGES.find(s => s.id === sabotageId);
+    if (!sab) return callback?.({ ok: false, error: 'Unknown sabotage.' });
+
+    // Check cooldown (30s)
+    const now = Date.now();
+    const cooldowns = attacker.state.sabotageCooldowns || {};
+    if (cooldowns[sabotageId] && now < cooldowns[sabotageId]) {
+      const secsLeft = Math.ceil((cooldowns[sabotageId] - now) / 1000);
+      return callback?.({ ok: false, error: `On cooldown for ${secsLeft}s.` });
+    }
+
+    const timesUsed = (attacker.state.sabotageUses?.[sabotageId] || 0);
+    const cost = sabotageCost(sab, timesUsed);
+    if (attacker.state.profit < cost) return callback?.({ ok: false, error: 'Not enough cash.' });
+
+    // Deduct cost & record use
+    attacker.state.profit -= cost;
+    attacker.state.sabotageUses = attacker.state.sabotageUses || {};
+    attacker.state.sabotageUses[sabotageId] = timesUsed + 1;
+    attacker.state.sabotageCooldowns = attacker.state.sabotageCooldowns || {};
+    attacker.state.sabotageCooldowns[sabotageId] = now + 30000;
+
+    // Apply effect
+    switch (sabotageId) {
+      case 'freeze':
+        target.state.frozenUntil = now + 15000;
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar, duration: 15 });
+        break;
+      case 'pickpocket': {
+        const inv = target.state.inventory;
+        const gemNames = Object.keys(inv).filter(k => inv[k] > 0);
+        let stolen = 0;
+        gemNames.forEach(name => {
+          const take = Math.floor(inv[name] * 0.08);
+          if (take > 0) { inv[name] -= take; stolen += take; if (inv[name] <= 0) delete inv[name]; }
+        });
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar, stolen });
+        break;
+      }
+      case 'cursed_vein':
+        target.state.cursedClicksLeft = (target.state.cursedClicksLeft || 0) + 10;
+        io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar });
+        break;
+    }
+
+    io.to(socket.id).emit('player:self', playerSelfPayload(attacker.state));
+    io.to(targetSocketId).emit('player:self', playerSelfPayload(target.state));
+    broadcastGameState(lobby);
+    callback?.({ ok: true, cost, self: playerSelfPayload(attacker.state) });
   });
 
   socket.on('disconnect', () => {
