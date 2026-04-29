@@ -537,17 +537,23 @@ io.on('connection', (socket) => {
     callback?.({ ok: true, gemsAdded: count, drops, miss: false, self: playerSelfPayload(p.state) });
 
     // Broadcast very rare finds (Moonstone / Void Gem) to entire lobby
+    // Throttled per player per gem: Moonstone max once/30s, Void Gem max once/60s
+    const now = Date.now();
+    p.state.rareFindCooldowns = p.state.rareFindCooldowns || {};
     drops.forEach(d => {
       const gemDef = GEM_TYPES.find(g => g.name === d.name);
-      if (gemDef && gemDef.rarity <= 0.004) {
-        io.to(lobby.code).emit('game:rareFind', {
-          finderName: p.state.name,
-          finderAvatar: p.state.avatar,
-          gemName: d.name,
-          gemEmoji: d.emoji,
-          isVoid: gemDef.rarity <= 0.001,
-        });
-      }
+      if (!gemDef || gemDef.rarity > 0.004) return;
+      const cooldownMs = gemDef.rarity <= 0.001 ? 60000 : 30000;
+      const lastBroadcast = p.state.rareFindCooldowns[d.name] || 0;
+      if (now - lastBroadcast < cooldownMs) return;
+      p.state.rareFindCooldowns[d.name] = now;
+      io.to(lobby.code).emit('game:rareFind', {
+        finderName: p.state.name,
+        finderAvatar: p.state.avatar,
+        gemName: d.name,
+        gemEmoji: d.emoji,
+        isVoid: gemDef.rarity <= 0.001,
+      });
     });
   });
 
