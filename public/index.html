@@ -1558,14 +1558,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Keyboard shortcuts (only active during gameplay)
   document.addEventListener('keydown', e => {
-    // Ignore if typing in an input/textarea
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
     const gameVisible = document.getElementById('game-screen')?.classList.contains('active');
     if (!gameVisible) return;
 
     if (e.code === 'Space' || e.key === ' ') {
       e.preventDefault();
-      if (e.repeat) return; // don't re-trigger while held
+      if (e.repeat) return;
       startCharge(e);
     } else if (e.code === 'KeyS' || e.key === 's' || e.key === 'S') {
       const sellBtn = document.getElementById('sell-all-btn');
@@ -1929,27 +1928,41 @@ function doMine(e, chargeMultiplier) {
   fireShot();
 }
 
+function getEventCoords(e) {
+  // KeyboardEvents have no clientX/Y — fall back to center of the mine button
+  if (e.clientX || e.clientY) return { x: e.clientX, y: e.clientY };
+  const btn = document.getElementById('mine-btn');
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+  return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+}
+
 function spawnClickParticle(e, text) {
+  const { x, y } = getEventCoords(e);
   const el = document.createElement('div');
   el.className = 'particle';
   el.textContent = text;
-  el.style.cssText = `left:${e.clientX-10}px;top:${e.clientY-10}px;color:var(--gold)`;
+  el.style.cssText = `left:${x-10}px;top:${y-10}px;color:var(--gold)`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 900);
 }
 function spawnGemParticle(e, gemName) {
+  const { x, y } = getEventCoords(e);
   const el = document.createElement('div');
   el.className = 'gem-drop';
   el.innerHTML = gemSVG(gemName);
-  el.style.cssText = `left:${e.clientX-10+(Math.random()-.5)*40}px;top:${e.clientY-20}px`;
+  el.style.cssText = `left:${x-10+(Math.random()-.5)*40}px;top:${y-20}px`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1000);
 }
 function spawnMissParticle(e) {
+  const { x, y } = getEventCoords(e);
   const el = document.createElement('div');
   el.className = 'miss-text';
   el.textContent = '• miss •';
-  el.style.cssText = `left:${e.clientX-20}px;top:${e.clientY-10}px`;
+  el.style.cssText = `left:${x-20}px;top:${y-10}px`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 800);
 }
