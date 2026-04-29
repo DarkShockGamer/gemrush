@@ -521,6 +521,8 @@ io.on('connection', (socket) => {
     callback?.({ ok: true, isPublic: lobby.isPublic });
     io.to(lobby.code).emit('lobby:visibilityChanged', { isPublic: lobby.isPublic });
   });
+
+  socket.on('lobby:rename', ({ name }, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
     const p = lobby.players[socket.id];
