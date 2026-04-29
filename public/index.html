@@ -665,8 +665,8 @@
       <div class="awards-title">🏅 Special Awards</div>
       <div id="awards-list"></div>
     </div>
-    <button class="btn btn-gold" onclick="goTitle()">⛏ New Game</button>
-    <div id="end-lobby-countdown" style="margin-top:.8rem;font-size:.85rem;color:var(--muted);font-family:'Share Tech Mono',monospace;text-align:center;"></div>
+    <button class="btn btn-gold" id="return-lobby-btn" onclick="returnToLobby()" style="display:none;">↩ Return to Lobby</button>
+    <div id="end-waiting-msg" style="margin-top:.8rem;font-size:.85rem;color:var(--muted);font-family:'Share Tech Mono',monospace;text-align:center;display:none;">⏳ Waiting for host to return to lobby...</div>
   </div>
 </div>
 
@@ -1083,8 +1083,6 @@ function initSocket() {
   });
 
   socket.on('lobby:returnedFromGame', ({ code, mode, duration }) => {
-    // Clear any countdown
-    if (endCountdownInterval) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
     gameMode = mode;
     lobbyCode = code;
     // Reset game state
@@ -1216,17 +1214,11 @@ function initSocket() {
     stopSabCooldownTick();
     removeFrozenOverlay();
     showEndScreen(results, mode, awards);
-    // Countdown back to lobby
-    let secs = 15;
-    const cdEl = document.getElementById('end-lobby-countdown');
-    function tickCountdown() {
-      if (cdEl) cdEl.textContent = `⏳ Returning to lobby in ${secs}s...`;
-      if (secs <= 0) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
-      secs--;
-    }
-    tickCountdown();
-    if (endCountdownInterval) clearInterval(endCountdownInterval);
-    endCountdownInterval = setInterval(tickCountdown, 1000);
+    // Host gets the return button; non-hosts see waiting message
+    const returnBtn = document.getElementById('return-lobby-btn');
+    const waitMsg   = document.getElementById('end-waiting-msg');
+    if (returnBtn) returnBtn.style.display = isHost ? 'block' : 'none';
+    if (waitMsg)   waitMsg.style.display   = isHost ? 'none'  : 'block';
   });
 
   socket.on('sabotage:hit', (data) => {
@@ -1377,6 +1369,11 @@ function confirmEndGame() {
       if (res && !res.ok) showToast('❌','Error', res.error);
     });
   }
+}
+function returnToLobby() {
+  socket.emit('lobby:returnToLobby', {}, (res) => {
+    if (res && !res.ok) showToast('❌', 'Error', res.error || 'Could not return to lobby.');
+  });
 }
 function copyCode() {
   navigator.clipboard.writeText(lobbyCode).then(() => showToast('📋','Copied!','Share this code with friends: ' + lobbyCode));
@@ -2241,7 +2238,6 @@ function goTitle() {
   removeJamBanner();
   clearSession();
   clearOrbitMiners();
-  if (endCountdownInterval) { clearInterval(endCountdownInterval); endCountdownInterval = null; }
   showScreen('title-screen');
   showHomeCard();
 }
