@@ -50,6 +50,7 @@ const UPGRADES = [
   { id: 'void_rig',   name: 'Void Drill Rig',   emoji: '🔮', baseCost: 100000, costMult: 8.5,  maxLevel: 2,  type: 'autoMine',        amount: 25,   gemEmoji: '🔮', desc: 'Drills into another dimension. +25 gems/sec AFK.' },
   { id: 'gem_forge',  name: 'Gem Forge',        emoji: '⚗️',  baseCost: 150000, costMult: 8.0,  maxLevel: 2,  type: 'valueMultiplier', amount: 1.00, desc: 'Refine raw gems. +100% sell value per level.' },
   { id: 'singularity',name: 'Mining Singularity',emoji:'🌀', baseCost: 500000, costMult: 10.0, maxLevel: 1,  type: 'autoMine',        amount: 100,  gemEmoji: '🔮', desc: 'A point of infinite density. +100 gems/sec AFK.' },
+  { id: 'satchel',    name: 'Gem Satchel',       emoji:'🎒', baseCost: 200,    costMult: 3.0,  maxLevel: 6,  type: 'inventoryCap',    amount: 25,                   desc: 'Carry more gems. +25 inventory slots per level.' },
 ];
 
 const ACHIEVEMENTS = [
@@ -84,7 +85,7 @@ const ACHIEVEMENTS = [
   { id: 'singularity_u', name: 'Singularity Achieved',emoji: '🌀', check: s => (s.upgradeLevels?.['singularity'] || 0) >= 1 },
 ];
 
-const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
+const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️','💎','🔮','⚗️','🌋','🦅','🐺','🐸','🧨','👑','🧲','🪄','⚡','🌀','🔥','❄️','☠️'];
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
 const lobbies = new Map();
@@ -114,6 +115,7 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     valueMultiplier: 1,
     rarityBonus: 0,
     upgradesBought: 0,
+    inventoryCap: 50,
     inventory: {},
     achievementsUnlocked: [],
     upgradeLevels: {},
@@ -162,6 +164,7 @@ function applyUpgrade(player, upgradeId) {
     case 'rarityBonus':     player.rarityBonus     += u.amount; break;
     case 'valueMultiplier': player.valueMultiplier += u.amount; break;
     case 'clickChance':     player.clickChance = Math.min(1, player.clickChance + u.amount); break;
+    case 'inventoryCap':    player.inventoryCap = (player.inventoryCap || 50) + u.amount; break;
   }
 }
 
@@ -253,6 +256,7 @@ function playerSelfPayload(state) {
     valueMultiplier: state.valueMultiplier,
     rarityBonus: state.rarityBonus,
     upgradesBought: state.upgradesBought,
+    inventoryCap: state.inventoryCap || 50,
     inventory: state.inventory,
     achievementsUnlocked: state.achievementsUnlocked,
     upgradeLevels: state.upgradeLevels,
@@ -387,6 +391,20 @@ io.on('connection', (socket) => {
     broadcastLobbyState(lobby);
   });
 
+  socket.on('lobby:setAvatar', ({ avatar }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+    if (PLAYER_AVATARS.includes(avatar)) {
+      p.state.avatar = avatar;
+      callback?.({ ok: true });
+      broadcastLobbyState(lobby);
+    } else {
+      callback?.({ ok: false, error: 'Invalid avatar.' });
+    }
+  });
+
   socket.on('game:start', (_, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
@@ -429,7 +447,14 @@ io.on('connection', (socket) => {
       return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: true, self: playerSelfPayload(p.state) });
     }
 
-    const count = Math.ceil(p.state.gemsPerClick);
+    // Check inventory cap
+    const cap = p.state.inventoryCap || 50;
+    const held = Object.values(p.state.inventory).reduce((s,v)=>s+v,0);
+    if (held >= cap) {
+      return callback?.({ ok: true, gemsAdded: 0, drops: [], miss: false, full: true, self: playerSelfPayload(p.state) });
+    }
+
+    const count = Math.min(Math.ceil(p.state.gemsPerClick), cap - held);
     const drops = [];
     for (let i = 0; i < count; i++) {
       const gem = rollGem(p.state);
