@@ -114,6 +114,58 @@
   .afk-gem{position:fixed;pointer-events:none;font-size:1.3rem;z-index:998;animation:afkBurst 1.1s ease-out forwards;}
   @keyframes afkBurst{0%{opacity:1;transform:translate(0,0) scale(1.1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}
 
+  /* ── SCREEN SHAKE ── */
+  @keyframes mineShake{
+    0%,100%{transform:translate(0,0) rotate(0deg)}
+    10%{transform:translate(-6px,-4px) rotate(-.5deg)}
+    20%{transform:translate(6px,-2px) rotate(.5deg)}
+    30%{transform:translate(-4px,6px) rotate(0deg)}
+    40%{transform:translate(4px,4px) rotate(.3deg)}
+    50%{transform:translate(-6px,-2px) rotate(-.3deg)}
+    60%{transform:translate(5px,-5px) rotate(.5deg)}
+    70%{transform:translate(-3px,3px) rotate(0deg)}
+    80%{transform:translate(4px,2px) rotate(-.2deg)}
+    90%{transform:translate(-2px,-4px) rotate(.2deg)}
+  }
+  .mine-area.shake{animation:mineShake .45s ease-out;}
+
+  /* ── CHARGE BUTTON ── */
+  .mine-button.charging{
+    border-color:var(--gold)!important;
+    box-shadow:0 0 0 0 rgba(245,200,66,.6);
+    animation:chargePulse var(--charge-dur,1s) ease-in forwards;
+  }
+  @keyframes chargePulse{
+    0%{box-shadow:0 0 0 0 rgba(245,200,66,.5);border-color:var(--border);background:radial-gradient(circle at 35% 35%,#2a2f3e,#12151c)}
+    50%{box-shadow:0 0 30px 8px rgba(245,200,66,.3);border-color:var(--gold);background:radial-gradient(circle at 35% 35%,#3a3020,#1a1408)}
+    100%{box-shadow:0 0 60px 20px rgba(245,200,66,.7);border-color:#fff8a0;background:radial-gradient(circle at 35% 35%,#5a4820,#2a1c08)}
+  }
+  .mine-button.power-strike{
+    animation:powerRelease .25s ease-out forwards;
+  }
+  @keyframes powerRelease{
+    0%{transform:scale(1.08);box-shadow:0 0 60px 20px rgba(245,200,66,.8)}
+    60%{transform:scale(.85)}
+    100%{transform:scale(1);box-shadow:none}
+  }
+  /* Charge ring indicator */
+  .charge-ring{
+    position:absolute;inset:-8px;border-radius:50%;
+    border:3px solid transparent;pointer-events:none;z-index:5;
+    background:conic-gradient(var(--gold) var(--pct,0%), transparent var(--pct,0%)) border-box;
+    -webkit-mask:radial-gradient(farthest-side,#0000 calc(100% - 3px),#000 calc(100% - 3px));
+    mask:radial-gradient(farthest-side,#0000 calc(100% - 3px),#000 calc(100% - 3px));
+    opacity:0;transition:opacity .1s;
+  }
+  .mine-button.charging .charge-ring{opacity:1;}
+  /* Charge label */
+  .charge-label{
+    position:absolute;bottom:-2.8rem;left:50%;transform:translateX(-50%);
+    font-family:'Share Tech Mono',monospace;font-size:.8rem;color:var(--gold);
+    opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none;
+  }
+  .mine-button.charging .charge-label{opacity:1;}
+
   /* ── INVENTORY / SELL ── */
   .inventory-section{width:100%;max-width:480px;}
   .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;}
@@ -510,8 +562,12 @@
       <div class="mine-btn-wrap">
         <!-- Orbit zone holds the button + orbiting miners -->
         <div class="orbit-zone" id="orbit-zone">
-          <button class="mine-button" id="mine-btn" onclick="doMine(event)">
+          <button class="mine-button" id="mine-btn"
+            onmousedown="startCharge(event)" onmouseup="releaseCharge(event)" onmouseleave="cancelCharge()"
+            ontouchstart="startCharge(event)" ontouchend="releaseCharge(event)" ontouchcancel="cancelCharge()">
             <span class="pick-icon">⛏</span>
+            <div class="charge-ring" id="charge-ring"></div>
+            <div class="charge-label" id="charge-label">HOLD TO CHARGE</div>
           </button>
         </div>
         <div class="mine-label">Click to Mine</div>
@@ -1208,28 +1264,265 @@ function renderLobbySlots(players) {
   }
 }
 
-// ─── Mining ────────────────────────────────────────────────────────────────────
-function doMine(e) {
+// ─── Web Audio Engine ──────────────────────────────────────────────────────────
+const AudioEngine = (() => {
+  let ctx = null;
+  function getCtx() {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function playTone({ freq=440, freq2, type='sine', gain=0.18, duration=0.12, attack=0.005, decay=0.08, detune=0 }) {
+    const c = getCtx(); if (!c) return;
+    const t = c.currentTime;
+    const osc = c.createOscillator();
+    const env = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (freq2) osc.frequency.exponentialRampToValueAtTime(freq2, t + duration);
+    osc.detune.value = detune;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(gain, t + attack);
+    env.gain.exponentialRampToValueAtTime(0.001, t + attack + decay);
+    osc.connect(env); env.connect(c.destination);
+    osc.start(t); osc.stop(t + duration + 0.05);
+  }
+
+  function playNoise({ gain=0.12, duration=0.08, attack=0.003, decay=0.06, lowpass=800 }) {
+    const c = getCtx(); if (!c) return;
+    const t = c.currentTime;
+    const buf = c.createBuffer(1, c.sampleRate * duration, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const filt = c.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = lowpass;
+    const env = c.createGain();
+    env.gain.setValueAtTime(0,t);
+    env.gain.linearRampToValueAtTime(gain, t+attack);
+    env.gain.exponentialRampToValueAtTime(0.001, t+attack+decay);
+    src.connect(filt); filt.connect(env); env.connect(c.destination);
+    src.start(t); src.stop(t+duration+0.05);
+  }
+
+  return {
+    click() {
+      // Quick thud — pickaxe hitting rock
+      playNoise({ gain:0.25, duration:0.09, attack:0.002, decay:0.07, lowpass:600 });
+      playTone({ freq:180, freq2:100, type:'triangle', gain:0.12, duration:0.08, attack:0.002, decay:0.06 });
+    },
+    miss() {
+      playTone({ freq:220, freq2:180, type:'sawtooth', gain:0.08, duration:0.15, attack:0.005, decay:0.12 });
+    },
+    gemDiscover(rarity) {
+      // Light chime for common gems, richer for rare
+      if (rarity <= 0.001) return; // rare fanfare handles these
+      const freq = rarity > 0.1 ? 660 : rarity > 0.005 ? 880 : 1100;
+      playTone({ freq, type:'sine', gain:0.14, duration:0.18, attack:0.01, decay:0.15 });
+      if (rarity < 0.02) {
+        setTimeout(()=>playTone({ freq:freq*1.25, type:'sine', gain:0.1, duration:0.14, attack:0.01, decay:0.12 }), 80);
+      }
+    },
+    rareFanfare() {
+      // Ascending arpeggio
+      const notes = [523, 659, 784, 1047, 1319];
+      notes.forEach((f,i)=>{
+        setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.18, duration:0.2, attack:0.01, decay:0.18 }), i*70);
+        setTimeout(()=>playTone({ freq:f*2, type:'triangle', gain:0.06, duration:0.15, attack:0.01, decay:0.13 }), i*70+35);
+      });
+    },
+    sabotageHit() {
+      // Harsh descending sting
+      playTone({ freq:400, freq2:120, type:'sawtooth', gain:0.22, duration:0.35, attack:0.005, decay:0.3 });
+      playNoise({ gain:0.18, duration:0.2, attack:0.002, decay:0.18, lowpass:1200 });
+    },
+    sell() {
+      // Classic cash register "cha-ching"
+      playTone({ freq:1200, type:'triangle', gain:0.12, duration:0.06, attack:0.002, decay:0.05 });
+      setTimeout(()=>playTone({ freq:1600, type:'triangle', gain:0.15, duration:0.12, attack:0.002, decay:0.1 }),60);
+      setTimeout(()=>playTone({ freq:1400, type:'sine', gain:0.1, duration:0.18, attack:0.005, decay:0.15 }),120);
+    },
+    powerCharge(level) {
+      // Rising hum as charge increases (0..1)
+      const freq = 80 + level * 320;
+      playTone({ freq, type:'sawtooth', gain:0.04, duration:0.08, attack:0.01, decay:0.07, detune:level*20 });
+    },
+    powerRelease(multiplier) {
+      // Deep thud + sparkle
+      playNoise({ gain:0.4, duration:0.18, attack:0.003, decay:0.15, lowpass:400 });
+      playTone({ freq:120, freq2:60, type:'triangle', gain:0.25, duration:0.25, attack:0.003, decay:0.22 });
+      const sparks = [1200,1500,1800,2200];
+      sparks.forEach((f,i)=>setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.08, duration:0.1, attack:0.002, decay:0.09 }),i*30));
+    }
+  };
+})();
+
+// ─── Haptics ───────────────────────────────────────────────────────────────────
+function haptic(pattern) {
+  try { navigator.vibrate && navigator.vibrate(pattern); } catch(e) {}
+}
+
+// ─── Screen Shake ──────────────────────────────────────────────────────────────
+function shakeScreen(intensity='normal') {
+  const area = document.querySelector('.mine-area');
+  if (!area) return;
+  area.classList.remove('shake');
+  void area.offsetWidth; // reflow
+  if (intensity === 'epic') area.style.animationDuration = '0.6s';
+  else area.style.animationDuration = '0.45s';
+  area.classList.add('shake');
+  area.addEventListener('animationend', () => area.classList.remove('shake'), { once:true });
+}
+
+// ─── Charge Mechanic ───────────────────────────────────────────────────────────
+const CHARGE_MAX_MS = 1200; // max hold time for full charge
+let chargeStart = null;
+let chargeRafId = null;
+let chargeEvent = null;
+
+function startCharge(e) {
+  if (e.type === 'touchstart') e.preventDefault();
   const btn = document.getElementById('mine-btn');
+  if (!btn || btn.disabled) return;
+  chargeStart = Date.now();
+  chargeEvent = e;
+  btn.classList.add('charging');
+  btn.style.setProperty('--charge-dur', CHARGE_MAX_MS + 'ms');
+  updateChargeRing();
+  haptic(10);
+}
+
+function updateChargeRing() {
+  chargeRafId = requestAnimationFrame(() => {
+    if (!chargeStart) return;
+    const elapsed = Date.now() - chargeStart;
+    const pct = Math.min(100, (elapsed / CHARGE_MAX_MS) * 100);
+    const ring = document.getElementById('charge-ring');
+    const label = document.getElementById('charge-label');
+    if (ring) ring.style.setProperty('--pct', pct + '%');
+    const mult = getChargeMultiplier();
+    if (label) {
+      if (pct < 15) label.textContent = 'HOLD TO CHARGE';
+      else label.textContent = `${mult}× POWER STRIKE`;
+    }
+    // Periodic audio feedback
+    if (Math.floor(elapsed / 100) > Math.floor((elapsed - 16) / 100)) {
+      AudioEngine.powerCharge(pct / 100);
+      if (pct > 5) haptic(5);
+    }
+    if (pct < 100) updateChargeRing();
+    else {
+      haptic([30,20,40]); // buzz when fully charged
+    }
+  });
+}
+
+function getChargeMultiplier() {
+  if (!chargeStart) return 1;
+  const elapsed = Date.now() - chargeStart;
+  const pct = Math.min(1, elapsed / CHARGE_MAX_MS);
+  if (pct < 0.2) return 1;
+  if (pct < 0.6) return 2;
+  return 3;
+}
+
+function releaseCharge(e) {
+  if (e.type === 'touchend') e.preventDefault();
+  if (chargeRafId) { cancelAnimationFrame(chargeRafId); chargeRafId = null; }
+  const btn = document.getElementById('mine-btn');
+  const mult = getChargeMultiplier();
+  const wasPowerStrike = chargeStart && (Date.now() - chargeStart) > 200;
+
+  chargeStart = null;
+  if (btn) {
+    btn.classList.remove('charging');
+    if (wasPowerStrike && mult > 1) {
+      btn.classList.add('power-strike');
+      setTimeout(()=>btn.classList.remove('power-strike'), 300);
+    }
+  }
+
+  const ring = document.getElementById('charge-ring');
+  const label = document.getElementById('charge-label');
+  if (ring) ring.style.setProperty('--pct', '0%');
+  if (label) label.textContent = 'HOLD TO CHARGE';
+
+  doMine(e || chargeEvent, mult);
+}
+
+function cancelCharge() {
+  if (chargeRafId) { cancelAnimationFrame(chargeRafId); chargeRafId = null; }
+  chargeStart = null;
+  const btn = document.getElementById('mine-btn');
+  if (btn) btn.classList.remove('charging');
+  const ring = document.getElementById('charge-ring');
+  const label = document.getElementById('charge-label');
+  if (ring) ring.style.setProperty('--pct', '0%');
+  if (label) label.textContent = 'HOLD TO CHARGE';
+}
+
+// ─── Mining ────────────────────────────────────────────────────────────────────
+function doMine(e, chargeMultiplier) {
+  const btn = document.getElementById('mine-btn');
+  const mult = chargeMultiplier || 1;
   btn.classList.add('clicking');
   setTimeout(() => btn.classList.remove('clicking'), 100);
 
-  socket.emit('game:mine', {}, (res) => {
-    if (!res || !res.ok) return;
-    selfState = res.self;
-    updateStats();
-    syncOrbitMiners();
+  // Determine how many times to fire based on charge (1, 2, or 3 hits)
+  let shotsLeft = mult;
+  function fireShot() {
+    socket.emit('game:mine', {}, (res) => {
+      if (!res || !res.ok) return;
+      selfState = res.self;
+      updateStats();
+      syncOrbitMiners();
 
-    if (res.full) {
-      // inventory full — just refresh UI, no particle
-    } else if (res.miss) {
-      spawnMissParticle(e);
-    } else {
-      spawnClickParticle(e, `+${res.gemsAdded}`);
-      res.drops?.forEach(d => spawnGemParticle(e, d.name));
-    }
-    if (currentTab === 'upgrades') renderUpgrades();
-  });
+      if (res.full) {
+        // inventory full
+      } else if (res.miss) {
+        AudioEngine.miss();
+        haptic(30);
+        spawnMissParticle(e);
+      } else {
+        AudioEngine.click();
+        haptic(mult > 1 ? [8, 10, 8] : 8);
+
+        const isRare = res.drops?.some(d => ['Diamond','Moonstone','Void Gem'].includes(d.name));
+        const isSemiRare = res.drops?.some(d => ['Sapphire','Emerald','Ruby'].includes(d.name));
+
+        if (isRare) {
+          AudioEngine.rareFanfare();
+          shakeScreen('epic');
+          haptic([80, 40, 80, 40, 120]);
+        } else if (isSemiRare) {
+          shakeScreen('normal');
+          haptic([30, 20, 30]);
+        }
+
+        const label = mult > 1 ? `⚡${mult}× +${res.gemsAdded}` : `+${res.gemsAdded}`;
+        spawnClickParticle(e, label);
+        res.drops?.forEach(d => {
+          const gem = GEM_TYPES.find(g => g.name === d.name);
+          if (gem) AudioEngine.gemDiscover(gem.rarity);
+          spawnGemParticle(e, d.name);
+        });
+      }
+      if (currentTab === 'upgrades') renderUpgrades();
+    });
+
+    shotsLeft--;
+    if (shotsLeft > 0) setTimeout(fireShot, 80);
+  }
+
+  if (mult > 1) {
+    AudioEngine.powerRelease(mult);
+    haptic([20, 15, 30]);
+  }
+  fireShot();
 }
 
 function spawnClickParticle(e, text) {
@@ -1369,6 +1662,8 @@ function sellGem(gemName) {
   socket.emit('game:sell', { gemName, quantity: -1 }, (res) => {
     if (!res || !res.ok) { showToast('❌','Cannot sell', res?.error || ''); return; }
     selfState = res.self;
+    AudioEngine.sell();
+    haptic([15, 10, 15]);
     showToast('💰', 'Gems Sold!', `+$${res.earned.toLocaleString()} from ${gemName}`);
     updateStats();
     if (currentTab === 'upgrades') renderUpgrades();
@@ -1385,6 +1680,8 @@ function sellAll() {
       if (res?.ok) { selfState = res.self; totalEarned += res.earned; }
       remaining--;
       if (remaining === 0) {
+        AudioEngine.sell();
+        haptic([20, 10, 20, 10, 30]);
         showToast('💰','All Gems Sold!', `+$${totalEarned.toLocaleString()} total`);
         updateStats();
         if (currentTab === 'upgrades') renderUpgrades();
@@ -1852,6 +2149,8 @@ function removeFrozenOverlay() {
 
 // ─── Sabotage hit notification ──────────────────────────────────────────────────
 function showSabotageHit(data) {
+  AudioEngine.sabotageHit();
+  haptic([100, 50, 100, 50, 200]);
   const msgs = {
     freeze:      `🧊 Your auto-miners are frozen for 15 seconds!`,
     pickpocket:  `🪤 ${data.stolen ?? 'Some'} gems were stolen from your inventory!`,
@@ -1878,9 +2177,14 @@ function showSabotageHit(data) {
 function showRareFindBanner(data) {
   // Remove existing banners
   document.querySelectorAll('.rare-banner').forEach(b => b.remove());
+  const isMe = data.finderName === (selfState?.name || '');
+  if (isMe) {
+    AudioEngine.rareFanfare();
+    shakeScreen('epic');
+    haptic([80, 40, 80, 40, 120]);
+  }
   const banner = document.createElement('div');
   banner.className = 'rare-banner' + (data.isVoid ? ' void-find' : '');
-  const isMe = data.finderName === (selfState?.name || '');
   banner.innerHTML = `
     <div class="rare-banner-gem">${data.gemEmoji}</div>
     <div class="rare-banner-text">${data.isVoid ? '🌌' : '✨'} ${data.gemName.toUpperCase()} FOUND!</div>
