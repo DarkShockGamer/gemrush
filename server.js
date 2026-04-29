@@ -610,17 +610,24 @@ io.on('connection', (socket) => {
     if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
     if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can start.' });
     if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Already started.' });
-    lobby.status = 'playing';
-    io.to(lobby.code).emit('game:started', { mode: lobby.gameMode, duration: lobby.gameDuration });
-    startAutoMineInterval(lobby);
-    broadcastGameState(lobby);
-    // Timed mode: auto-end after duration
-    if (lobby.gameMode === 'timed' && lobby.gameDuration) {
-      lobby.timedEnd = setTimeout(() => {
-        if (lobby.status === 'playing') endGame(lobby);
-      }, lobby.gameDuration * 1000);
-    }
+    lobby.status = 'countdown';
     callback?.({ ok: true });
+    // Broadcast 3 -> 2 -> 1 then launch
+    [3, 2, 1].forEach((n, i) => {
+      setTimeout(() => io.to(lobby.code).emit('game:countdown', { count: n }), i * 1000);
+    });
+    setTimeout(() => {
+      if (lobby.status !== 'countdown') return;
+      lobby.status = 'playing';
+      io.to(lobby.code).emit('game:started', { mode: lobby.gameMode, duration: lobby.gameDuration });
+      startAutoMineInterval(lobby);
+      broadcastGameState(lobby);
+      if (lobby.gameMode === 'timed' && lobby.gameDuration) {
+        lobby.timedEnd = setTimeout(() => {
+          if (lobby.status === 'playing') endGame(lobby);
+        }, lobby.gameDuration * 1000);
+      }
+    }, 3000);
   });
 
   socket.on('game:end', (_, callback) => {
