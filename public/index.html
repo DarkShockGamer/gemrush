@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GEM RUSH — Multiplayer Mining</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="/socket.io/socket.io.js"></script>
@@ -88,7 +88,7 @@
   .mine-btn-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:.8rem;}
   /* Orbit container — wide enough to hold orbiting miners */
   .orbit-zone{position:relative;width:320px;height:320px;display:flex;align-items:center;justify-content:center;}
-  .mine-button{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2a2f3e,#12151c);border:3px solid var(--border);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:4rem;transition:all .08s;position:relative;overflow:hidden;user-select:none;z-index:2;}
+  .mine-button{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2a2f3e,#12151c);border:3px solid var(--border);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:4rem;transition:all .08s;position:relative;overflow:hidden;user-select:none;z-index:2;touch-action:manipulation;}
   .mine-button::before{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(245,200,66,.08),transparent 70%);opacity:0;transition:opacity .15s;}
   .mine-button:hover::before{opacity:1;}
   .mine-button:active,.mine-button.clicking{transform:scale(.93);box-shadow:0 0 30px rgba(245,200,66,.2);border-color:var(--gold);}
@@ -1661,8 +1661,8 @@ function showRareFindBanner(data) {
   const isMe = data.finderName === (selfState?.name || '');
   banner.innerHTML = `
     <div class="rare-banner-gem">${data.gemEmoji}</div>
-    <div class="rare-banner-text">${data.isVoid ? '🌌 VOID GEM FOUND!' : '✨ RARE FIND!'}</div>
-    <div class="rare-banner-sub">${data.finderAvatar} ${isMe ? 'YOU found' : data.finderName + ' found'} a <strong>${data.gemName}</strong>!</div>`;
+    <div class="rare-banner-text">${data.isVoid ? '🌌' : '✨'} ${data.gemName.toUpperCase()} FOUND!</div>
+    <div class="rare-banner-sub">${data.finderAvatar} ${isMe ? 'YOU found it!' : data.finderName + ' found it!'}</div>`;
   document.body.appendChild(banner);
   setTimeout(() => banner.remove(), 4700);
 }
