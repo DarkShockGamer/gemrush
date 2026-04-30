@@ -1391,41 +1391,14 @@ function initSocket() {
 
   socket.on('game:state', ({ players }) => {
     allPlayers = players;
-
-    // ── Rank-change announcements ──────────────────────────────────────────
-    if (mySocketId && players.length > 1) {
-      const sorted = [...players].sort((a, b) =>
-        (b.totalEarned + (b.unsoldValue || 0)) - (a.totalEarned + (a.unsoldValue || 0))
-      );
-      const myIdx = sorted.findIndex(p => p.socketId === mySocketId);
-      if (myIdx !== -1) {
-        const newRank = myIdx + 1;
-        const total = sorted.length;
-        if (myLastRank !== null && newRank !== myLastRank) {
-          const moved = myLastRank - newRank; // positive = moved up
-          if (moved > 0) {
-            // Climbed up — figure out who we just passed
-            const nowAhead = sorted[myIdx + 1]; // player just below (was ahead before)
-            const msg = nowAhead ? `Passed ${nowAhead.avatar} ${nowAhead.name}` : `You're #${newRank}!`;
-            showRankToast('up', newRank, total, msg);
-          } else {
-            // Dropped down
-            const nowAbove = sorted[myIdx - 1]; // player just above
-            const msg = nowAbove ? `${nowAbove.avatar} ${nowAbove.name} overtook you` : `You dropped to #${newRank}`;
-            showRankToast('down', newRank, total, msg);
-          }
-        }
-        myLastRank = newRank;
-      }
-    }
-    // ──────────────────────────────────────────────────────────────────────
-
+    checkRankChange();
     if (currentTab === 'players') renderPlayers();
     if (currentTab === 'sabotage') renderSabotage();
   });
 
   socket.on('player:self', (state) => {
     selfState = state;
+    checkRankChange(); // also check rank using latest allPlayers whenever our own score changes
     updateStats();
     syncOrbitMiners();
     if (currentTab === 'upgrades') renderUpgrades();
@@ -2574,7 +2547,47 @@ function showConfirm({ icon = '⚠️', title = 'Are you sure?', msg = '', okTex
   });
 }
 
-let _rankToastTimer = null;
+function checkRankChange() {
+  if (!mySocketId || !allPlayers || allPlayers.length < 2) return;
+
+  // Build a merged snapshot: use allPlayers but substitute our own live profit
+  // so the rank reflects our real score even between game:state broadcasts
+  const myProfit = selfState ? (selfState.profit || 0) : 0;
+  const snapshot = allPlayers.map(p => {
+    if (p.socketId === mySocketId) {
+      // Use live self state for our score — profit is always current
+      return { ...p, totalEarned: myProfit, unsoldValue: 0 };
+    }
+    return p;
+  });
+
+  const sorted = [...snapshot].sort((a, b) =>
+    (b.totalEarned + (b.unsoldValue || 0)) - (a.totalEarned + (a.unsoldValue || 0))
+  );
+
+  const myIdx = sorted.findIndex(p => p.socketId === mySocketId);
+  if (myIdx === -1) return;
+
+  const newRank = myIdx + 1;
+  const total = sorted.length;
+
+  if (myLastRank !== null && newRank !== myLastRank) {
+    const moved = myLastRank - newRank; // positive = climbed up
+    if (moved > 0) {
+      const passed = sorted[myIdx + 1]; // player now just below us
+      const msg = passed ? `Passed ${passed.avatar} ${passed.name}` : `You're #${newRank}!`;
+      showRankToast('up', newRank, total, msg);
+    } else {
+      const overtaker = sorted[myIdx - 1]; // player now just above us
+      const msg = overtaker ? `${overtaker.avatar} ${overtaker.name} overtook you` : `Dropped to #${newRank}`;
+      showRankToast('down', newRank, total, msg);
+    }
+  }
+
+  myLastRank = newRank;
+}
+
+
 function showRankToast(dir, rank, total, detail) {
   const el = document.getElementById('rank-toast');
   if (!el) return;
