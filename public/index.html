@@ -281,7 +281,7 @@
   #confirm-ok { background: var(--ruby); color: #fff; }
   #confirm-ok:hover { filter: brightness(1.15); }
   #confirm-ok.safe { background: var(--emerald); color: #000; }
-  #rank-toast{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);z-index:9998;pointer-events:none;display:flex;align-items:center;gap:.6rem;padding:.5rem 1.1rem;border-radius:999px;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.12em;white-space:nowrap;opacity:0;transition:opacity .25s;}
+  #rank-toast{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);z-index:9998;pointer-events:none;display:flex;align-items:center;gap:.6rem;padding:.5rem 1.1rem;border-radius:999px;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.12em;white-space:nowrap;opacity:0;}
   #rank-toast.rank-up{background:rgba(48,217,122,.18);border:1.5px solid #30d97a;color:#30d97a;box-shadow:0 0 16px rgba(48,217,122,.25);}
   #rank-toast.rank-down{background:rgba(232,64,64,.15);border:1.5px solid #e84040;color:#e84060;box-shadow:0 0 16px rgba(232,64,64,.2);}
   #rank-toast.rank-show{opacity:1;animation:rankPop .35s cubic-bezier(.16,1,.3,1) both;}
@@ -2578,16 +2578,33 @@ let _rankToastTimer = null;
 function showRankToast(dir, rank, total, detail) {
   const el = document.getElementById('rank-toast');
   if (!el) return;
+
   // Cancel any pending hide
   if (_rankToastTimer) { clearTimeout(_rankToastTimer); _rankToastTimer = null; }
+
   const medals = ['🥇','🥈','🥉','4️⃣'];
   const medal = medals[rank - 1] || `#${rank}`;
   const arrow = dir === 'up' ? '▲' : '▼';
-  el.className = `rank-${dir} rank-show`;
+
+  // Strip classes + force reflow so animation ALWAYS restarts, even on rapid changes
+  el.className = '';
+  el.textContent = '';
+  el.style.opacity = '0';
+  el.style.transition = '';
+  void el.offsetWidth; // flush styles — forces animation to retrigger every time
+
   el.textContent = `${arrow} ${medal} of ${total}  —  ${detail}`;
+  el.className = `rank-${dir} rank-show`;
+
   _rankToastTimer = setTimeout(() => {
+    el.style.transition = 'opacity .3s';
     el.style.opacity = '0';
-    setTimeout(() => { el.className = ''; el.textContent = ''; }, 300);
+    setTimeout(() => {
+      el.className = '';
+      el.textContent = '';
+      el.style.transition = '';
+    }, 320);
+    _rankToastTimer = null;
   }, 3500);
 }
 
