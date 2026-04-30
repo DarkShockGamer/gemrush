@@ -238,7 +238,49 @@
   .toast-icon{font-size:1.4rem;}
   .toast-text{font-size:.9rem;line-height:1.3;}
   .toast-title{font-weight:700;color:var(--gold);}
-  /* Rank-change toast */
+  /* ── CUSTOM CONFIRM DIALOG ── */
+  #confirm-overlay {
+    position: fixed; inset: 0; z-index: 9000;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .18s ease;
+  }
+  #confirm-overlay.visible { opacity: 1; pointer-events: all; }
+  #confirm-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem 2rem 1.5rem;
+    width: 100%; max-width: 360px; margin: 1rem;
+    transform: translateY(12px) scale(.97);
+    transition: transform .18s cubic-bezier(.16,1,.3,1);
+    text-align: center;
+  }
+  #confirm-overlay.visible #confirm-box { transform: none; }
+  #confirm-icon { font-size: 2.2rem; margin-bottom: .5rem; }
+  #confirm-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem;
+    letter-spacing: .05em; color: var(--text); margin-bottom: .4rem;
+  }
+  #confirm-msg {
+    font-size: .95rem; color: var(--muted); line-height: 1.4;
+    margin-bottom: 1.4rem;
+  }
+  .confirm-btns { display: flex; gap: .7rem; }
+  .confirm-btns button {
+    flex: 1; padding: .65rem 1rem; border-radius: 10px;
+    border: none; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem; font-weight: 700; letter-spacing: .04em;
+    cursor: pointer; transition: filter .15s, transform .1s;
+  }
+  .confirm-btns button:active { transform: scale(.97); }
+  #confirm-cancel {
+    background: var(--surface2); color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  #confirm-cancel:hover { filter: brightness(1.2); }
+  #confirm-ok { background: var(--ruby); color: #fff; }
+  #confirm-ok:hover { filter: brightness(1.15); }
+  #confirm-ok.safe { background: var(--emerald); color: #000; }
   #rank-toast{position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);z-index:9998;pointer-events:none;display:flex;align-items:center;gap:.6rem;padding:.5rem 1.1rem;border-radius:999px;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.12em;white-space:nowrap;opacity:0;transition:opacity .25s;}
   #rank-toast.rank-up{background:rgba(48,217,122,.18);border:1.5px solid #30d97a;color:#30d97a;box-shadow:0 0 16px rgba(48,217,122,.25);}
   #rank-toast.rank-down{background:rgba(232,64,64,.15);border:1.5px solid #e84040;color:#e84060;box-shadow:0 0 16px rgba(232,64,64,.2);}
@@ -1051,8 +1093,8 @@ function toggleLobbyPublic() {
   });
 }
 
-function leaveLobby() {
-  if (!confirm('Leave this lobby?')) return;
+async function leaveLobby() {
+  if (!await showConfirm({ icon: '🚪', title: 'Leave Lobby?', msg: 'You will be removed from the current lobby.', okText: 'Leave', cancelText: 'Stay' })) return;
   socket.emit('lobby:leave', {}, (res) => {
     if (res && !res.ok) { showToast('❌', 'Cannot Leave', res.error); return; }
     lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
@@ -1066,8 +1108,8 @@ function leaveLobby() {
   });
 }
 
-function confirmLeaveGame() {
-  if (!confirm('Leave this game? You\'ll lose your progress in this round.')) return;
+async function confirmLeaveGame() {
+  if (!await showConfirm({ icon: '🏃', title: 'Leave Game?', msg: "You'll lose your progress in this round.", okText: 'Leave', cancelText: 'Stay' })) return;
   socket.emit('lobby:leave', {}, (res) => {
     if (res && !res.ok) { showToast('❌', 'Cannot Leave', res.error); return; }
     lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
@@ -1588,15 +1630,15 @@ function startGame() {
     if (res && !res.ok) showToast('❌','Error', res.error);
   });
 }
-function confirmEndLobby() {
-  if (confirm('Close this lobby? All players will be disconnected.')) {
+async function confirmEndLobby() {
+  if (await showConfirm({ icon: '🔴', title: 'End Lobby?', msg: 'All players will be disconnected.', okText: 'End Lobby', cancelText: 'Cancel' })) {
     socket.emit('lobby:end', {}, (res) => {
       if (res && !res.ok) showToast('❌','Error', res.error || 'Could not end lobby.');
     });
   }
 }
-function confirmEndGame() {
-  if (confirm('End the game for everyone? Final scores will be tallied.')) {
+async function confirmEndGame() {
+  if (await showConfirm({ icon: '🏁', title: 'End Game?', msg: 'Final scores will be tallied for all players.', okText: 'End Game', cancelText: 'Cancel' })) {
     socket.emit('game:end', {}, (res) => {
       if (res && !res.ok) showToast('❌','Error', res.error);
     });
@@ -1929,7 +1971,6 @@ function doMine(e, chargeMultiplier) {
 }
 
 function getEventCoords(e) {
-  // KeyboardEvents have no clientX/Y — fall back to center of the mine button
   if (e.clientX || e.clientY) return { x: e.clientX, y: e.clientY };
   const btn = document.getElementById('mine-btn');
   if (btn) {
@@ -2500,6 +2541,39 @@ function showToast(icon, title, msg) {
   setTimeout(() => t.remove(), 3200);
 }
 
+// Custom confirm dialog — replaces native confirm()
+// showConfirm({ icon, title, msg, okText, okSafe, cancelText }) => Promise<bool>
+function showConfirm({ icon = '⚠️', title = 'Are you sure?', msg = '', okText = 'Confirm', okSafe = false, cancelText = 'Cancel' } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('confirm-overlay');
+    const okBtn   = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+    document.getElementById('confirm-icon').textContent  = icon;
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-msg').textContent   = msg;
+    okBtn.textContent     = okText;
+    cancelBtn.textContent = cancelText;
+    okBtn.className = okSafe ? 'safe' : '';
+
+    overlay.classList.add('visible');
+
+    function finish(result) {
+      overlay.classList.remove('visible');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onBackdrop);
+      resolve(result);
+    }
+    function onOk()      { finish(true);  }
+    function onCancel()  { finish(false); }
+    function onBackdrop(e) { if (e.target === overlay) finish(false); }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onBackdrop);
+  });
+}
+
 let _rankToastTimer = null;
 function showRankToast(dir, rank, total, detail) {
   const el = document.getElementById('rank-toast');
@@ -2697,6 +2771,19 @@ initSocket();
 <div id="countdown-overlay">
   <div class="countdown-number" id="countdown-number">3</div>
   <div class="countdown-label">GET READY</div>
+</div>
+
+<!-- Custom confirm dialog -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <div id="confirm-icon"></div>
+    <div id="confirm-title"></div>
+    <div id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button id="confirm-cancel">Cancel</button>
+      <button id="confirm-ok">Confirm</button>
+    </div>
+  </div>
 </div>
 
 </body>
