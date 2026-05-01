@@ -52,8 +52,14 @@ const UPGRADES = [
   { id: 'singularity',name: 'Mining Singularity',emoji:'🌀', baseCost: 500000, costMult: 10.0, maxLevel: 1,  type: 'autoMine',        amount: 100,  gemEmoji: '🔮', desc: 'A point of infinite density. +100 gems/sec AFK.' },
   { id: 'satchel',    name: 'Gem Satchel',       emoji:'🎒', baseCost: 500,    costMult: 4.5,  maxLevel: 6,  type: 'inventoryCap',    amount: 0,                    desc: 'Doubles your bag capacity each upgrade. Starts at 50 slots.' },
   { id: 'gem_insurance', name: 'Gem Insurance',  emoji: '🛡', baseCost: 2500,  costMult: 1.0,  maxLevel: 1,  type: 'sabotageShield',  amount: 1,    desc: 'Blocks the next sabotage you receive. One-time use, recharge by repurchasing.' },
-  { id: 'bulk_sell',  name: 'Bulk Sell',         emoji: '📦', baseCost: 3500,  costMult: 1.0,  maxLevel: 1,  type: 'bulkSell',        amount: 1,    desc: 'Auto-sells your entire inventory every 30 seconds at 90% value. Perfect for AFK play.' },
+  { id: 'bulk_sell',  name: 'Auto Sell',         emoji: '📦', baseCost: 3500,  costMult: 2.2,  maxLevel: 5,  type: 'bulkSell',        amount: 1,    desc: 'Auto-sells when inventory is full. Each level reduces the delay.' },
 ];
+
+// Auto-sell delay (ms) per level: 1->2s, 2->1.5s, 3->1s, 4->0.5s, 5->instant
+const AUTO_SELL_DELAY_MS = [0, 2000, 1500, 1000, 500, 0];
+function getAutoSellDelayMs(level) {
+  return AUTO_SELL_DELAY_MS[Math.min(level, AUTO_SELL_DELAY_MS.length - 1)] || 0;
+}
 
 const ACHIEVEMENTS = [
   { id: 'first_click',   name: 'First Strike',        emoji: '⚒',  check: s => s.totalClicks >= 1        },
@@ -234,7 +240,7 @@ function applyUpgrade(player, upgradeId) {
     case 'clickChance':     player.clickChance = Math.min(1, player.clickChance + u.amount); break;
     case 'inventoryCap':    player.inventoryCap = (player.inventoryCap || 50) * 2; break;
     case 'sabotageShield':  player.sabotageShield = true; break;
-    case 'bulkSell':        player.hasBulkSell = true; break;
+    case 'bulkSell':        player.hasBulkSell = true; player.bulkSellLevel = (player.upgradeLevels['bulk_sell'] || 0); break;
   }
 }
 
@@ -301,15 +307,15 @@ function startAutoMineInterval(lobby) {
     let anyAutoMiner = false;
     const now = Date.now();
     for (const [sid, p] of Object.entries(lobby.players)) {
-      // ── Bulk Sell auto-tick ──────────────────────────────────────────
-      if (p.state.hasBulkSell && p.state.bulkSellNextAt && now >= p.state.bulkSellNextAt) {
-        p.state.bulkSellNextAt = now + 30000;
+      // ── Auto Sell: check if a pending auto-sell timer has fired ──────────
+      if (p.state.hasBulkSell && p.state.bulkSellPendingAt && now >= p.state.bulkSellPendingAt) {
+        p.state.bulkSellPendingAt = null;
         const inv = p.state.inventory;
         let autoEarned = 0;
         for (const gem of GEM_TYPES) {
           const count = inv[gem.name] || 0;
           if (count <= 0) continue;
-          const saleValue = Math.floor(count * Math.floor(gem.value * p.state.valueMultiplier) * 0.9);
+          const saleValue = Math.floor(count * Math.floor(gem.value * p.state.valueMultiplier));
           autoEarned += saleValue;
           p.state.totalSold = p.state.totalSold || {};
           p.state.totalSold[gem.name] = (p.state.totalSold[gem.name] || 0) + count;
@@ -328,16 +334,28 @@ function startAutoMineInterval(lobby) {
         // Skip auto-mine if frozen
         if (p.state.frozenUntil && Date.now() < p.state.frozenUntil) continue;
         anyAutoMiner = true;
-        const drops = [];
-        for (let i = 0; i < p.state.autoMine; i++) {
-          const gem = rollGem(p.state);
-          p.state.inventory[gem.name] = (p.state.inventory[gem.name] || 0) + 1;
-          p.state.totalGems++;
-          drops.push({ emoji: gem.emoji, name: gem.name });
+        const amCap = p.state.inventoryCap || 50;
+        const amHeld = Object.values(p.state.inventory).reduce((s,v)=>s+v,0);
+        // Don't auto-mine past cap (unless auto-sell pending, let it fill naturally)
+        if (amHeld < amCap) {
+          const drops = [];
+          const toMine = Math.min(p.state.autoMine, amCap - amHeld);
+          for (let i = 0; i < toMine; i++) {
+            const gem = rollGem(p.state);
+            p.state.inventory[gem.name] = (p.state.inventory[gem.name] || 0) + 1;
+            p.state.totalGems++;
+            drops.push({ emoji: gem.emoji, name: gem.name });
+          }
+          const newAch = checkAchievements(p.state);
+          if (newAch.length) io.to(sid).emit('achievements:unlocked', newAch);
+          io.to(sid).emit('automine:drops', { drops });
+          // Check if now full — trigger auto-sell
+          const afterHeld = Object.values(p.state.inventory).reduce((s,v)=>s+v,0);
+          if (p.state.hasBulkSell && afterHeld >= amCap && !p.state.bulkSellPendingAt) {
+            const bsLvl = p.state.upgradeLevels?.['bulk_sell'] || 1;
+            p.state.bulkSellPendingAt = now + getAutoSellDelayMs(bsLvl);
+          }
         }
-        const newAch = checkAchievements(p.state);
-        if (newAch.length) io.to(sid).emit('achievements:unlocked', newAch);
-        io.to(sid).emit('automine:drops', { drops });
         io.to(sid).emit('player:self', playerSelfPayload(p.state));
       }
     }
@@ -371,7 +389,8 @@ function playerSelfPayload(state) {
     gemTaxPending: state.gemTaxPending || 0,
     sabotageShield: state.sabotageShield || false,
     hasBulkSell: state.hasBulkSell || false,
-    bulkSellNextAt: state.bulkSellNextAt || 0,
+    bulkSellLevel: state.upgradeLevels?.['bulk_sell'] || 0,
+    bulkSellPendingAt: state.bulkSellPendingAt || 0,
     prestigeRank: state.prestigeRank || 0,
     prestigeBonus: state.prestigeBonus || 0,
     lifetimeEarned: state.lifetimeEarned || 0,
@@ -750,6 +769,14 @@ io.on('connection', (socket) => {
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     callback?.({ ok: true, gemsAdded: count, drops, miss: false, self: playerSelfPayload(p.state) });
 
+    // Auto-sell trigger: if inventory is now full and player has auto-sell, schedule a delayed sell
+    const newHeld = Object.values(p.state.inventory).reduce((s,v)=>s+v,0);
+    if (p.state.hasBulkSell && newHeld >= cap && !p.state.bulkSellPendingAt) {
+      const lvl = p.state.upgradeLevels?.['bulk_sell'] || 1;
+      const delayMs = getAutoSellDelayMs(lvl);
+      p.state.bulkSellPendingAt = Date.now() + delayMs;
+    }
+
     // Broadcast very rare finds (Moonstone / Void Gem) to entire lobby
     // Throttled per player per gem: Moonstone max once/30s, Void Gem max once/60s
     const now = Date.now();
@@ -833,7 +860,8 @@ io.on('connection', (socket) => {
     p.state.upgradesBought++;
 
     if (upgradeId === 'bulk_sell') {
-      p.state.bulkSellNextAt = Date.now() + 30000;
+      p.state.bulkSellLevel = p.state.upgradeLevels['bulk_sell'] || 1;
+      p.state.bulkSellPendingAt = null; // reset any pending timer
     }
     const newAch = checkAchievements(p.state);
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
@@ -936,7 +964,7 @@ io.on('connection', (socket) => {
     // Require all base UPGRADES to be fully maxed
     const allMaxed = UPGRADES.every(u => {
       const lvl = p.state.upgradeLevels?.[u.id] || 0;
-      if (u.type === 'sabotageShield' || u.type === 'bulkSell') return lvl >= 1;
+      if (u.type === 'sabotageShield') return lvl >= 1;
       return lvl >= u.maxLevel;
     });
     if (!allMaxed) return callback?.({ ok: false, error: 'Max out all upgrades first.' });
