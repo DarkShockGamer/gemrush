@@ -319,6 +319,8 @@ function startAutoMineInterval(lobby) {
 
 function playerSelfPayload(state) {
   return {
+    name: state.name,
+    avatar: state.avatar,
     totalGems: state.totalGems,
     profit: state.profit,
     totalEarned: state.totalEarned,
