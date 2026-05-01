@@ -531,6 +531,63 @@
   }
 
 
+  /* ── ACCESSIBILITY ── */
+  #a11y-btn {
+    position: fixed; top: .8rem; right: .8rem; z-index: 500;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: .35rem .6rem;
+    color: var(--muted); font-size: .75rem; letter-spacing: .08em;
+    cursor: pointer; font-family: 'Barlow Condensed', sans-serif;
+    transition: border-color .2s, color .2s; white-space: nowrap;
+    display: none;
+  }
+  #a11y-btn:hover { border-color: var(--gold); color: var(--gold); }
+  #a11y-overlay {
+    position: fixed; inset: 0; z-index: 8000;
+    background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  #a11y-overlay.visible { opacity: 1; pointer-events: all; }
+  #a11y-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.8rem; width: 100%; max-width: 360px;
+    margin: 1rem; transform: translateY(10px) scale(.97);
+    transition: transform .2s cubic-bezier(.16,1,.3,1);
+  }
+  #a11y-overlay.visible #a11y-box { transform: none; }
+  .a11y-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem;
+    letter-spacing: .1em; color: var(--gold); margin-bottom: .3rem;
+  }
+  .a11y-subtitle { font-size: .8rem; color: var(--muted); margin-bottom: 1.2rem; }
+  .a11y-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .7rem 0; border-bottom: 1px solid var(--border);
+  }
+  .a11y-row:last-of-type { border-bottom: none; }
+  .a11y-label { font-size: .95rem; }
+  .a11y-label small { display: block; font-size: .72rem; color: var(--muted); margin-top: .1rem; }
+  .a11y-toggle {
+    width: 44px; height: 24px; border-radius: 12px;
+    background: var(--border); border: none; cursor: pointer;
+    position: relative; transition: background .2s; flex-shrink: 0;
+  }
+  .a11y-toggle.on { background: var(--emerald); }
+  .a11y-toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    transition: transform .2s;
+  }
+  .a11y-toggle.on::after { transform: translateX(20px); }
+  .a11y-close {
+    margin-top: 1.2rem; width: 100%; padding: .65rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem; letter-spacing: .1em; cursor: pointer; transition: border-color .2s;
+  }
+  .a11y-close:hover { border-color: var(--gold); }
+
   /* ── LOBBY CHAT ── */
   .lobby-chat-wrap {
     position: fixed;
@@ -627,6 +684,32 @@
 <body>
 <div id="toast-container"></div>
 <div id="rank-toast"></div>
+
+<!-- ACCESSIBILITY BUTTON -->
+<button id="a11y-btn" onclick="openA11y()" title="Accessibility Settings">♿ Access</button>
+
+<!-- ACCESSIBILITY MODAL -->
+<div id="a11y-overlay" onclick="closeA11yBackdrop(event)">
+  <div id="a11y-box">
+    <div class="a11y-title">♿ Accessibility</div>
+    <div class="a11y-subtitle">Reduce visual effects that may cause discomfort.</div>
+    <div class="a11y-row">
+      <div class="a11y-label">
+        Screen Shake
+        <small>Shakes on clicks & rare finds</small>
+      </div>
+      <button class="a11y-toggle" id="toggle-shake" onclick="toggleA11y('shake', this)"></button>
+    </div>
+    <div class="a11y-row">
+      <div class="a11y-label">
+        Floating Particles
+        <small>Gem drops & +number popups</small>
+      </div>
+      <button class="a11y-toggle" id="toggle-particles" onclick="toggleA11y('particles', this)"></button>
+    </div>
+    <button class="a11y-close" onclick="closeA11y()">Done</button>
+  </div>
+</div>
 
 <!-- TITLE -->
 <div id="title-screen" class="screen active">
@@ -958,7 +1041,7 @@ const UPGRADES = [
   {id:'singularity',  name:'Mining Singularity', emoji:'🌀', baseCost:500000, costMult:10.0, maxLevel:1,  type:'autoMine',        gemEmoji:'🔮', desc:'A point of infinite density. +100 gems/sec AFK.'},
   {id:'satchel',      name:'Gem Satchel',        emoji:'🎒', baseCost:500,    costMult:4.5,  maxLevel:6,  type:'inventoryCap',    desc:'Doubles your bag capacity each upgrade. Starts at 50 slots.'},
   {id:'gem_insurance',name:'Gem Insurance',      emoji:'🛡', baseCost:2500,   costMult:1.0,  maxLevel:1,  type:'sabotageShield',  desc:'Blocks the next sabotage you receive. One-time use — recharge by repurchasing.'},
-  {id:'bulk_sell',    name:'Bulk Sell',           emoji:'📦', baseCost:3500,   costMult:1.0,  maxLevel:1,  type:'bulkSell',        desc:'Auto-sells your inventory every 30 seconds at 90% value. Great for AFK play.'},
+  {id:'bulk_sell',    name:'Auto Sell',            emoji:'📦', baseCost:3500,   costMult:2.2,  maxLevel:5,  type:'bulkSell',        desc:'Auto-sells when inventory is full. Delay decreases each level.'},
 ];
 const ACHIEVEMENTS = [
   {id:'first_click',   name:'First Strike',         emoji:'⚒',  desc:'Make your first click.'},
@@ -1590,7 +1673,7 @@ function initSocket() {
   socket.on('bulksell:triggered', ({ earned }) => {
     AudioEngine.sell();
     haptic([15, 10, 15]);
-    showToast('📦', 'Bulk Sell!', `Auto-sold inventory for $${earned.toLocaleString()} (90% value)`);
+    showToast('📦', 'Auto Sell!', `Auto-sold inventory for $${earned.toLocaleString()}`);
     if (currentTab === 'upgrades') renderUpgrades();
   });
 
@@ -1928,8 +2011,28 @@ function haptic(pattern) {
   try { navigator.vibrate && navigator.vibrate(pattern); } catch(e) {}
 }
 
+// ─── Accessibility Settings ────────────────────────────────────────────────────
+const A11Y_KEY = 'gemrush_a11y';
+function getA11ySettings() {
+  try { return JSON.parse(localStorage.getItem(A11Y_KEY) || '{}'); } catch(e) { return {}; }
+}
+function setA11ySetting(key, val) {
+  const s = getA11ySettings();
+  s[key] = val;
+  localStorage.setItem(A11Y_KEY, JSON.stringify(s));
+}
+function isShakeEnabled()    { const s = getA11ySettings(); return s.shake    !== false; }
+function isParticlesEnabled(){ const s = getA11ySettings(); return s.particles !== false; }
+
 // ─── Screen Shake ──────────────────────────────────────────────────────────────
+let _lastShakeTime = 0;
+const SHAKE_COOLDOWN_MS = 800; // minimum ms between shakes in late game
 function shakeScreen(intensity='normal') {
+  if (!isShakeEnabled()) return;
+  const now = Date.now();
+  // In late game (lots of clicks), throttle shakes so they don't happen every click
+  if (now - _lastShakeTime < SHAKE_COOLDOWN_MS) return;
+  _lastShakeTime = now;
   const area = document.querySelector('.mine-area');
   if (!area) return;
   area.classList.remove('shake');
@@ -1938,6 +2041,44 @@ function shakeScreen(intensity='normal') {
   else area.style.animationDuration = '0.45s';
   area.classList.add('shake');
   area.addEventListener('animationend', () => area.classList.remove('shake'), { once:true });
+}
+
+// ─── Accessibility Modal ───────────────────────────────────────────────────────
+function openA11y() {
+  const overlay = document.getElementById('a11y-overlay');
+  if (!overlay) return;
+  // Sync toggles
+  ['shake', 'particles'].forEach(key => {
+    const btn = document.getElementById('toggle-' + key);
+    if (!btn) return;
+    const enabled = key === 'shake' ? isShakeEnabled() : isParticlesEnabled();
+    btn.className = 'a11y-toggle' + (enabled ? ' on' : '');
+  });
+  overlay.classList.add('visible');
+}
+function closeA11y() {
+  const overlay = document.getElementById('a11y-overlay');
+  if (overlay) overlay.classList.remove('visible');
+}
+function closeA11yBackdrop(e) {
+  if (e.target === document.getElementById('a11y-overlay')) closeA11y();
+}
+function toggleA11y(key, btn) {
+  const s = getA11ySettings();
+  const current = key === 'shake' ? isShakeEnabled() : isParticlesEnabled();
+  setA11ySetting(key, !current);
+  btn.className = 'a11y-toggle' + (!current ? ' on' : '');
+}
+
+// Show/hide accessibility button based on current screen
+const _origShowScreen = showScreen;
+function showScreen(id) {
+  _origShowScreen(id);
+  const a11yBtn = document.getElementById('a11y-btn');
+  if (a11yBtn) {
+    // Show on title and game screens, not in lobby or end
+    a11yBtn.style.display = (id === 'title-screen' || id === 'game-screen') ? 'block' : 'none';
+  }
 }
 
 // ─── Charge Mechanic ───────────────────────────────────────────────────────────
@@ -2098,6 +2239,7 @@ function getEventCoords(e) {
 }
 
 function spawnClickParticle(e, text) {
+  if (!isParticlesEnabled()) return;
   const { x, y } = getEventCoords(e);
   const el = document.createElement('div');
   el.className = 'particle';
@@ -2107,6 +2249,7 @@ function spawnClickParticle(e, text) {
   setTimeout(() => el.remove(), 900);
 }
 function spawnGemParticle(e, gemName) {
+  if (!isParticlesEnabled()) return;
   const { x, y } = getEventCoords(e);
   const el = document.createElement('div');
   el.className = 'gem-drop';
@@ -2316,8 +2459,9 @@ function renderUpgrades() {
     const shieldDesc = isShield
       ? ` ${shieldActive ? '<strong style="color:var(--sapphire)">Shield is ACTIVE — ready to block!</strong>' : 'Shield is consumed. Repurchase to recharge.'}`
       : '';
-    const bulkDesc = isBulkSell && selfState?.hasBulkSell
-      ? ` <strong style="color:var(--emerald)">Active — selling every 30s at 90% value.</strong>` : '';
+    const bulkDelayNext = isBulkSell && !maxed ? getAutoSellDelay(lvl + 1) : 0;
+    const bulkDesc = isBulkSell && lvl > 0
+      ? ` <strong style="color:var(--emerald)">Active · ${getAutoSellDelay(lvl) === 0 ? 'INSTANT sell on full' : getAutoSellDelay(lvl) + 's delay on full'}${!maxed ? ' → next: ' + (bulkDelayNext === 0 ? 'instant' : bulkDelayNext + 's') : ''}</strong>` : '';
     card.innerHTML = `
       <div class="upg-header">
         <div class="upg-name">${u.emoji} ${u.name}${afkBadge}${capBadge}${shieldBadge}${bulkBadge}</div>
@@ -2981,12 +3125,19 @@ function removeJamBanner() {
   if (jamCheckInterval) { clearInterval(jamCheckInterval); jamCheckInterval = null; }
 }
 
+// Auto-sell delay per level: 1=2s, 2=1.5s, 3=1s, 4=0.5s, 5=instant
+const AUTO_SELL_DELAYS = [0, 2, 1.5, 1, 0.5, 0];
+function getAutoSellDelay(level) {
+  return AUTO_SELL_DELAYS[Math.min(level, AUTO_SELL_DELAYS.length - 1)] || 0;
+}
 function updateBulkSellCountdown(state) {
   const el = document.getElementById('bulk-sell-countdown');
   if (!el) return;
-  if (state.hasBulkSell && state.bulkSellNextAt) {
-    const secsLeft = Math.max(0, Math.ceil((state.bulkSellNextAt - Date.now()) / 1000));
-    el.textContent = `📦 Auto-sell in ${secsLeft}s`;
+  const lvl = state.upgradeLevels?.bulk_sell || 0;
+  if (lvl > 0) {
+    const delay = getAutoSellDelay(lvl);
+    const label = delay === 0 ? '📦 Auto Sell: INSTANT' : `📦 Auto Sell active · ${delay}s delay`;
+    el.textContent = label;
     el.style.display = 'block';
   } else {
     el.style.display = 'none';
@@ -3191,6 +3342,9 @@ function stopNotifPolling() {
 document.addEventListener('DOMContentLoaded', () => {
   updateNotifBtn();
   if (notifEnabled()) startNotifPolling();
+  // Show a11y button on initial title screen
+  const a11yBtn = document.getElementById('a11y-btn');
+  if (a11yBtn) a11yBtn.style.display = 'block';
 });
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
