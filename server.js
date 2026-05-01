@@ -99,6 +99,28 @@ function sabotageCost(sab, timesUsed) {
   return Math.floor(sab.baseCost * Math.pow(1 + timesUsed * 0.35, 2));
 }
 
+// ── PRESTIGE ─────────────────────────────────────────────────────────────────
+// Each rank requires a cumulative totalEarned threshold (in a single run or
+// across all runs — here we use lifetime totalEarned stored across sessions).
+// The bonus is a permanent value-multiplier added on top of each prestige.
+const PRESTIGE_RANKS = [
+  { rank: 1,  label: 'I',    emoji: '🌑', threshold: 50000,    bonus: 0.10, color: '#aaaaaa' },
+  { rank: 2,  label: 'II',   emoji: '🌒', threshold: 200000,   bonus: 0.10, color: '#aaaaaa' },
+  { rank: 3,  label: 'III',  emoji: '🌓', threshold: 750000,   bonus: 0.15, color: '#f5c842' },
+  { rank: 4,  label: 'IV',   emoji: '🌔', threshold: 2500000,  bonus: 0.15, color: '#f5c842' },
+  { rank: 5,  label: 'V',    emoji: '🌕', threshold: 8000000,  bonus: 0.20, color: '#30d97a' },
+  { rank: 6,  label: 'VI',   emoji: '🔮', threshold: 25000000, bonus: 0.25, color: '#9040f0' },
+  { rank: 7,  label: 'VII',  emoji: '💀', threshold: 100000000,bonus: 0.30, color: '#e84040' },
+];
+
+// Prestige-only upgrades unlocked after rank 1+
+const PRESTIGE_UPGRADES = [
+  { id: 'deep_core',    name: 'Deep Core Drill',   emoji: '⚙️',  baseCost: 5000,   costMult: 5.0, maxLevel: 4, type: 'autoMine',        amount: 8,    desc: 'Drills the deep earth. +8 gems/sec AFK. [Prestige only]' },
+  { id: 'dark_matter',  name: 'Dark Matter Lens',  emoji: '🌑',  baseCost: 10000,  costMult: 5.5, maxLevel: 3, type: 'rarityBonus',     amount: 0.50, desc: 'Bends reality to find rarer gems. +50% rare gem rate. [Prestige only]' },
+  { id: 'golden_heart', name: 'Golden Heart',      emoji: '💛',  baseCost: 20000,  costMult: 6.0, maxLevel: 3, type: 'valueMultiplier', amount: 0.75, desc: 'Every gem pulses with gold. +75% sell value per level. [Prestige only]' },
+  { id: 'void_soul',    name: 'Void Soul',         emoji: '👁',  baseCost: 50000,  costMult: 8.0, maxLevel: 2, type: 'autoMine',        amount: 30,   gemEmoji: '🔮', desc: 'Your very essence mines. +30 gems/sec AFK. [Prestige only]' },
+];
+
 const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️','💎','🔮','⚗️','🌋','🦅','🐺','🐸','🧨','👑','🧲','🪄','⚡','🌀','🔥','❄️','☠️'];
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
@@ -132,7 +154,8 @@ function generateSessionToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
-function createPlayerState(name, avatarIndex, colorIndex) {
+function createPlayerState(name, avatarIndex, colorIndex, prestigeData) {
+  const pd = prestigeData || {};
   return {
     name,
     avatar: PLAYER_AVATARS[avatarIndex % PLAYER_AVATARS.length],
@@ -144,7 +167,7 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     clickChance: 0.55,
     gemsPerClick: 1,
     autoMine: 0,
-    valueMultiplier: 1,
+    valueMultiplier: 1 + (pd.prestigeBonus || 0),
     rarityBonus: 0,
     upgradesBought: 0,
     inventoryCap: 50,
@@ -153,15 +176,18 @@ function createPlayerState(name, avatarIndex, colorIndex) {
     upgradeLevels: {},
     totalSold: {},
     totalSellCount: 0,
-    sabotageUses: {},      // { sabotageId: timesUsed }
-    sabotageCooldowns: {}, // { sabotageId: timestampMs }
-    frozenUntil: 0,        // timestamp when freeze expires
-    cursedClicksLeft: 0,   // forced misses remaining
-    sabotageShield: false, // blocks next incoming sabotage
-    pickaxeJamUntil: 0,    // timestamp when pickaxe jam expires
-    gemTaxPending: 0,      // fraction of next sell to steal (0.15 if active)
-    gemTaxAttackerSocketId: null, // who gets the stolen proceeds
-    bulkSellInterval: null,// interval handle for bulk sell auto-timer
+    sabotageUses: {},
+    sabotageCooldowns: {},
+    frozenUntil: 0,
+    cursedClicksLeft: 0,
+    sabotageShield: false,
+    pickaxeJamUntil: 0,
+    gemTaxPending: 0,
+    gemTaxAttackerSocketId: null,
+    bulkSellInterval: null,
+    prestigeRank: pd.prestigeRank || 0,
+    prestigeBonus: pd.prestigeBonus || 0,
+    lifetimeEarned: pd.lifetimeEarned || 0,
   };
 }
 
@@ -188,13 +214,13 @@ function rollGem(player) {
 }
 
 function upgradeCost(upgradeId, level) {
-  const u = UPGRADES.find(x => x.id === upgradeId);
+  const u = UPGRADES.find(x => x.id === upgradeId) || PRESTIGE_UPGRADES.find(x => x.id === upgradeId);
   if (!u) return Infinity;
   return Math.floor(u.baseCost * Math.pow(u.costMult, level));
 }
 
 function applyUpgrade(player, upgradeId) {
-  const u = UPGRADES.find(x => x.id === upgradeId);
+  const u = UPGRADES.find(x => x.id === upgradeId) || PRESTIGE_UPGRADES.find(x => x.id === upgradeId);
   if (!u) return;
   switch (u.type) {
     case 'gemsPerClick':
@@ -255,6 +281,7 @@ function broadcastGameState(lobby) {
     achievementsUnlocked: p.state.achievementsUnlocked,
     unsoldValue: calcInventoryValue(p.state),
     team: p.team,
+    prestigeRank: p.state.prestigeRank || 0,
   }));
   io.to(lobby.code).emit('game:state', { players: snapshot });
 }
@@ -344,6 +371,9 @@ function playerSelfPayload(state) {
     sabotageShield: state.sabotageShield || false,
     hasBulkSell: state.hasBulkSell || false,
     bulkSellNextAt: state.bulkSellNextAt || 0,
+    prestigeRank: state.prestigeRank || 0,
+    prestigeBonus: state.prestigeBonus || 0,
+    lifetimeEarned: state.lifetimeEarned || 0,
   };
 }
 
@@ -649,7 +679,12 @@ io.on('connection', (socket) => {
     let colorIdx = 0;
     for (const [sid, p] of Object.entries(lobby.players)) {
       const { name, avatar, color } = p.state;
-      p.state = createPlayerState(name, 0, colorIdx);
+      const pd = {
+        prestigeRank: p.state.prestigeRank || 0,
+        prestigeBonus: p.state.prestigeBonus || 0,
+        lifetimeEarned: (p.state.lifetimeEarned || 0) + (p.state.totalEarned || 0),
+      };
+      p.state = createPlayerState(name, 0, colorIdx, pd);
       p.state.avatar = avatar;
       p.state.color = color;
       colorIdx++;
@@ -776,8 +811,12 @@ io.on('connection', (socket) => {
     if (!lobby || lobby.status !== 'playing') return callback?.({ ok: false });
     const p = lobby.players[socket.id];
     if (!p) return callback?.({ ok: false });
-    const u = UPGRADES.find(x => x.id === upgradeId);
+    const u = UPGRADES.find(x => x.id === upgradeId) || PRESTIGE_UPGRADES.find(x => x.id === upgradeId);
     if (!u) return callback?.({ ok: false, error: 'Unknown upgrade.' });
+    // Prestige-only upgrades require rank >= 1
+    if (PRESTIGE_UPGRADES.find(x => x.id === upgradeId) && (p.state.prestigeRank || 0) < 1) {
+      return callback?.({ ok: false, error: 'Requires Prestige I.' });
+    }
     const currentLevel = p.state.upgradeLevels[upgradeId] || 0;
     if (currentLevel >= u.maxLevel) return callback?.({ ok: false, error: 'Already maxed.' });
     const cost = upgradeCost(upgradeId, currentLevel);
@@ -787,7 +826,6 @@ io.on('connection', (socket) => {
     applyUpgrade(p.state, upgradeId);
     p.state.upgradesBought++;
 
-    // If buying bulk_sell, set the next auto-sell timestamp
     if (upgradeId === 'bulk_sell') {
       p.state.bulkSellNextAt = Date.now() + 30000;
     }
@@ -876,6 +914,51 @@ io.on('connection', (socket) => {
     io.to(targetSocketId).emit('player:self', playerSelfPayload(target.state));
     broadcastGameState(lobby);
     callback?.({ ok: true, cost, self: playerSelfPayload(attacker.state) });
+  });
+
+  // ── Prestige ────────────────────────────────────────────────────────────────
+  socket.on('game:prestige', (_, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby || lobby.status !== 'playing') return callback?.({ ok: false, error: 'Not in game.' });
+    const p = lobby.players[socket.id];
+    if (!p) return callback?.({ ok: false });
+
+    const currentRank = p.state.prestigeRank || 0;
+    const nextRankDef = PRESTIGE_RANKS[currentRank]; // index = currentRank (0-based)
+    if (!nextRankDef) return callback?.({ ok: false, error: 'Already at max prestige.' });
+
+    // Threshold is on lifetime earned across this entire session's games
+    const lifetime = (p.state.lifetimeEarned || 0) + p.state.totalEarned;
+    if (lifetime < nextRankDef.threshold) {
+      return callback?.({ ok: false, error: `Need $${nextRankDef.threshold.toLocaleString()} lifetime earned.` });
+    }
+
+    const newRank = currentRank + 1;
+    const totalBonus = (p.state.prestigeBonus || 0) + nextRankDef.bonus;
+
+    // Carry prestige data into the reset
+    const pd = {
+      prestigeRank: newRank,
+      prestigeBonus: totalBonus,
+      lifetimeEarned: lifetime,
+    };
+
+    const { name, avatar, color } = p.state;
+    const colorIdx = PLAYER_COLORS.indexOf(p.state.color);
+    p.state = createPlayerState(name, 0, colorIdx >= 0 ? colorIdx : 0, pd);
+    p.state.avatar = avatar;
+    p.state.color = color;
+
+    socket.emit('prestige:achieved', {
+      rank: newRank,
+      label: nextRankDef.label,
+      emoji: nextRankDef.emoji,
+      bonus: nextRankDef.bonus,
+      totalBonus,
+      self: playerSelfPayload(p.state),
+    });
+    broadcastGameState(lobby);
+    callback?.({ ok: true, rank: newRank, self: playerSelfPayload(p.state) });
   });
 
   socket.on('disconnect', () => {
