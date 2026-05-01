@@ -3119,18 +3119,25 @@ async function requestNotifPermission() {
     setNotifOptOut(false);
     updateNotifBtn();
     startNotifPolling();
-    showToast('🔔', 'Notifications On', "We'll ping you when a public lobby opens (max once per 5 min).");
+    showToast('🔔', 'Notifications On', "Switch tabs and we'll ping you when a public lobby opens.");
     return;
   }
   const perm = await Notification.requestPermission();
-  if (perm === 'granted') {
+  // Chromebook/Chrome sometimes resolves the promise before the browser
+  // has updated Notification.permission — re-read it directly as a fallback
+  const actual = Notification.permission;
+  if (perm === 'granted' || actual === 'granted') {
     setNotifOptOut(false);
     startNotifPolling();
-    showToast('🔔', 'Notifications On', "We'll ping you when a public lobby opens (max once per 5 min).");
-  } else if (perm === 'denied') {
+    updateNotifBtn();
+    showToast('🔔', 'Notifications On', "Switch tabs and we'll ping you when a public lobby opens.");
+  } else if (perm === 'denied' || actual === 'denied') {
     showToast('🔕', 'Blocked', 'Enable notifications in your browser settings to use this feature.');
+    updateNotifBtn();
+  } else {
+    // 'default' — user dismissed the prompt without choosing
+    updateNotifBtn();
   }
-  updateNotifBtn();
 }
 
 function fireLobbyNotif(lobby) {
@@ -3163,9 +3170,16 @@ async function pollForLobbies() {
   } catch (e) { /* network hiccup, ignore */ }
 }
 
-function startNotifPolling() {
+async function startNotifPolling() {
   if (notifPollTimer) return; // already running
   if (!notifEnabled()) return;
+  // Seed known lobbies so we only notify about NEW ones going forward
+  try {
+    const lobbies = await fetch('/api/lobbies').then(r => r.json());
+    knownLobbySet = new Set(lobbies.map(l => l.code));
+  } catch (e) {
+    knownLobbySet = new Set();
+  }
   notifPollTimer = setInterval(pollForLobbies, NOTIF_POLL_INTERVAL_MS);
 }
 
