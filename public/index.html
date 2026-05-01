@@ -430,6 +430,28 @@
   @keyframes frozenPulse { from{opacity:.6} to{opacity:1} }
   .frozen-banner { position:fixed;top:4.5rem;left:50%;transform:translateX(-50%);z-index:4001;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.15em;color:#80d8ff;background:rgba(0,80,120,.8);border:1px solid #80d8ff;border-radius:8px;padding:.3rem 1rem;pointer-events:none; }
 
+  /* Prestige */
+  .prestige-badge{display:inline-flex;align-items:center;gap:.2rem;font-family:'Share Tech Mono',monospace;font-size:.65rem;padding:.1rem .4rem;border-radius:3px;border:1px solid;vertical-align:middle;margin-left:.3rem;font-weight:700;}
+  .prestige-btn-wrap{width:100%;max-width:480px;margin-top:.5rem;}
+  .prestige-btn{width:100%;padding:.65rem 1rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.15em;cursor:pointer;border:1px solid var(--gold);background:rgba(245,200,66,.07);color:var(--gold);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.5rem;}
+  .prestige-btn:hover:not(:disabled){background:rgba(245,200,66,.15);box-shadow:0 0 20px rgba(245,200,66,.2);}
+  .prestige-btn:disabled{opacity:.3;cursor:not-allowed;}
+  .prestige-info{font-size:.72rem;color:var(--muted);text-align:center;margin-top:.35rem;font-family:'Share Tech Mono',monospace;}
+  .prestige-rank-display{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.5rem;background:rgba(245,200,66,.05);border:1px solid rgba(245,200,66,.2);border-radius:8px;margin-bottom:.6rem;}
+  .prestige-rank-label{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.1em;color:var(--gold);}
+  .prestige-rank-bonus{font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--emerald);}
+  #prestige-overlay{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .3s;}
+  #prestige-overlay.show{opacity:1;pointer-events:all;}
+  .prestige-modal{background:var(--surface);border:2px solid var(--gold);border-radius:20px;padding:2.5rem 2rem;text-align:center;max-width:340px;width:90%;animation:prestigeIn .5s cubic-bezier(.16,1,.3,1);}
+  @keyframes prestigeIn{from{transform:scale(.7) translateY(40px);opacity:0}to{transform:none;opacity:1}}
+  .prestige-modal-gem{font-size:4rem;margin-bottom:.5rem;animation:float 2s ease-in-out infinite;}
+  .prestige-modal-title{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:.1em;color:var(--gold);line-height:1;}
+  .prestige-modal-sub{font-size:1rem;color:var(--muted);margin:.5rem 0 1rem;}
+  .prestige-modal-bonus{font-family:'Share Tech Mono',monospace;font-size:.9rem;color:var(--emerald);background:rgba(48,217,122,.1);border:1px solid rgba(48,217,122,.3);border-radius:6px;padding:.4rem .8rem;margin-bottom:1.2rem;}
+  .prestige-modal-btn{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.1em;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1200;border:none;border-radius:8px;padding:.7rem 2rem;cursor:pointer;transition:filter .15s;}
+  .prestige-modal-btn:hover{filter:brightness(1.1);}
+  .prestige-section-header{font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:.15em;color:#9040f0;border-bottom:1px solid rgba(144,64,240,.3);padding-bottom:.3rem;margin:1rem 0 .5rem;display:flex;align-items:center;gap:.4rem;}
+
   @media(max-width:700px){
     #game-screen{height:100dvh;}
     .game-layout{grid-template-columns:1fr;grid-template-rows:1fr auto;height:100%;}
@@ -808,9 +830,14 @@
           <span id="inv-cap-warn"></span>
         </div>
         <!-- Status indicators -->
-        <div id="gem-tax-indicator" style="display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(232,64,64,.18);border:1px solid var(--ruby);border-radius:6px;font-size:.78rem;color:var(--ruby);font-family:'Share Tech Mono',monospace;">💸 GEM TAX ACTIVE — 15% of your next sell will be stolen!</div>
-        <div id="shield-indicator" style="display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(64,144,245,.18);border:1px solid var(--sapphire);border-radius:6px;font-size:.78rem;color:var(--sapphire);font-family:'Share Tech Mono',monospace;">🛡 SABOTAGE SHIELD ACTIVE — next attack will be blocked!</div>
-        <div id="bulk-sell-countdown" style="display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(48,217,122,.12);border:1px solid rgba(48,217,122,.4);border-radius:6px;font-size:.78rem;color:var(--emerald);font-family:'Share Tech Mono',monospace;"></div>
+        <div id=\"gem-tax-indicator\" style=\"display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(232,64,64,.18);border:1px solid var(--ruby);border-radius:6px;font-size:.78rem;color:var(--ruby);font-family:'Share Tech Mono',monospace;\">💸 GEM TAX ACTIVE — 15% of your next sell will be stolen!</div>
+        <div id=\"shield-indicator\" style=\"display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(64,144,245,.18);border:1px solid var(--sapphire);border-radius:6px;font-size:.78rem;color:var(--sapphire);font-family:'Share Tech Mono',monospace;\">🛡 SABOTAGE SHIELD ACTIVE — next attack will be blocked!</div>
+        <div id=\"bulk-sell-countdown\" style=\"display:none;margin-top:.4rem;padding:.3rem .7rem;background:rgba(48,217,122,.12);border:1px solid rgba(48,217,122,.4);border-radius:6px;font-size:.78rem;color:var(--emerald);font-family:'Share Tech Mono',monospace;\"></div>
+      </div>
+      <!-- Prestige button -->
+      <div class=\"prestige-btn-wrap\" id=\"prestige-btn-wrap\" style=\"display:none\">
+        <button class=\"prestige-btn\" id=\"prestige-btn\" onclick=\"doPrestige()\">🌑 Go Deeper — Prestige!</button>
+        <div class=\"prestige-info\" id=\"prestige-info\"></div>
       </div>
     </div>
     <div class="upgrade-panel" id="upgrade-panel">
@@ -825,6 +852,17 @@
       <div class="panel-content" id="panel-sabotage" style="display:none"></div>
       <div class="panel-content" id="panel-achievements" style="display:none"></div>
     </div>
+  </div>
+</div>
+
+<!-- PRESTIGE OVERLAY -->
+<div id="prestige-overlay">
+  <div class="prestige-modal">
+    <div class="prestige-modal-gem" id="prestige-modal-gem">🌑</div>
+    <div class="prestige-modal-title" id="prestige-modal-title">PRESTIGE I</div>
+    <div class="prestige-modal-sub">Deep Mine unlocked. Your legacy multiplier carries forward.</div>
+    <div class="prestige-modal-bonus" id="prestige-modal-bonus">+10% permanent gem value</div>
+    <button class="prestige-modal-btn" onclick="dismissPrestige()">Descend Deeper ⛏</button>
   </div>
 </div>
 
@@ -939,6 +977,33 @@ const SABOTAGES = [
 ];
 function sabotageCostClient(sab, timesUsed) {
   return Math.floor(sab.baseCost * Math.pow(1 + timesUsed * 0.35, 2));
+}
+
+const PRESTIGE_RANKS = [
+  { rank: 1,  label: 'I',    emoji: '🌑', threshold: 50000,    bonus: 0.10, color: '#aaaaaa' },
+  { rank: 2,  label: 'II',   emoji: '🌒', threshold: 200000,   bonus: 0.10, color: '#aaaaaa' },
+  { rank: 3,  label: 'III',  emoji: '🌓', threshold: 750000,   bonus: 0.15, color: '#f5c842' },
+  { rank: 4,  label: 'IV',   emoji: '🌔', threshold: 2500000,  bonus: 0.15, color: '#f5c842' },
+  { rank: 5,  label: 'V',    emoji: '🌕', threshold: 8000000,  bonus: 0.20, color: '#30d97a' },
+  { rank: 6,  label: 'VI',   emoji: '🔮', threshold: 25000000, bonus: 0.25, color: '#9040f0' },
+  { rank: 7,  label: 'VII',  emoji: '💀', threshold: 100000000,bonus: 0.30, color: '#e84040' },
+];
+const PRESTIGE_UPGRADES = [
+  { id: 'deep_core',    name: 'Deep Core Drill',   emoji: '⚙️',  baseCost: 5000,   costMult: 5.0, maxLevel: 4, type: 'autoMine',        amount: 8,    desc: 'Drills the deep earth. +8 gems/sec AFK.' },
+  { id: 'dark_matter',  name: 'Dark Matter Lens',  emoji: '🌑',  baseCost: 10000,  costMult: 5.5, maxLevel: 3, type: 'rarityBonus',     amount: 0.50, desc: 'Bends reality to find rarer gems. +50% rare gem rate.' },
+  { id: 'golden_heart', name: 'Golden Heart',      emoji: '💛',  baseCost: 20000,  costMult: 6.0, maxLevel: 3, type: 'valueMultiplier', amount: 0.75, desc: 'Every gem pulses with gold. +75% sell value per level.' },
+  { id: 'void_soul',    name: 'Void Soul',         emoji: '👁',  baseCost: 50000,  costMult: 8.0, maxLevel: 2, type: 'autoMine',        amount: 30,   desc: 'Your very essence mines. +30 gems/sec AFK.' },
+];
+function upgradeCostClient(upgradeId, level) {
+  const u = [...UPGRADES, ...PRESTIGE_UPGRADES].find(x => x.id === upgradeId);
+  if (!u) return Infinity;
+  return Math.floor(u.baseCost * Math.pow(u.costMult, level));
+}
+function prestigeBadgeHTML(rank) {
+  if (!rank || rank < 1) return '';
+  const rd = PRESTIGE_RANKS[rank - 1];
+  if (!rd) return '';
+  return `<span class="prestige-badge" style="color:${rd.color};border-color:${rd.color};background:${rd.color}18">${rd.emoji} ${rd.label}</span>`;
 }
 
 // ─── State ─────────────────────────────────────────────────────────────────────
@@ -1507,6 +1572,29 @@ function initSocket() {
 
   socket.on('game:rareFind', (data) => {
     showRareFindBanner(data);
+  });
+
+  socket.on('prestige:achieved', ({ rank, label, emoji, bonus, totalBonus, self }) => {
+    selfState = self;
+    // Update modal
+    const modal_gem = document.getElementById('prestige-modal-gem');
+    const modal_title = document.getElementById('prestige-modal-title');
+    const modal_bonus = document.getElementById('prestige-modal-bonus');
+    if (modal_gem) modal_gem.textContent = emoji;
+    if (modal_title) modal_title.textContent = `PRESTIGE ${label}`;
+    if (modal_bonus) modal_bonus.textContent = `+${Math.round(bonus*100)}% permanent gem value (total: +${Math.round(totalBonus*100)}%)`;
+    const overlay = document.getElementById('prestige-overlay');
+    if (overlay) overlay.classList.add('show');
+    // Confetti burst
+    if (typeof confetti === 'function') {
+      confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 }, colors: ['#f5c842','#9040f0','#ffffff','#30d97a'] });
+      setTimeout(() => confetti({ particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.5 } }), 300);
+      setTimeout(() => confetti({ particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.5 } }), 300);
+    }
+    haptic([50, 30, 50, 30, 80]);
+    AudioEngine.sell();
+    updateStats();
+    renderUpgrades();
   });
 
   socket.on('lobby:closed', ({ reason }) => {
@@ -2163,11 +2251,20 @@ function renderUpgrades() {
   const container = document.getElementById('panel-upgrades');
   container.innerHTML = '';
   const cash = selfState?.profit || 0;
+  const myPrestigeRank = selfState?.prestigeRank || 0;
+
+  // If player has prestige rank, show prestige status at top
+  if (myPrestigeRank > 0) {
+    const rd = PRESTIGE_RANKS[myPrestigeRank - 1];
+    const display = document.createElement('div');
+    display.className = 'prestige-rank-display';
+    display.innerHTML = `<div class="prestige-rank-label">${rd.emoji} Prestige ${rd.label}</div><div class="prestige-rank-bonus">+${Math.round((selfState.prestigeBonus||0)*100)}% permanent gem value bonus active</div>`;
+    container.appendChild(display);
+  }
 
   // Sort: affordable first (by cost ASC), then unaffordable (by cost ASC), maxed last
   const withMeta = UPGRADES.map(u => {
     const lvl = selfState?.upgradeLevels?.[u.id] || 0;
-    // sabotageShield can be repurchased when maxed but shield is not active
     const shieldConsumed = u.type === 'sabotageShield' && lvl >= u.maxLevel && !selfState?.sabotageShield;
     const maxed = lvl >= u.maxLevel && !shieldConsumed;
     const cost = maxed ? Infinity : getUpgradeCost(u);
@@ -2175,9 +2272,9 @@ function renderUpgrades() {
     return { u, lvl, maxed, cost, canAfford };
   });
   withMeta.sort((a, b) => {
-    if (a.maxed !== b.maxed) return a.maxed ? 1 : -1; // maxed to bottom
-    if (a.canAfford !== b.canAfford) return a.canAfford ? -1 : 1; // affordable to top
-    return a.cost - b.cost; // cheapest first within group
+    if (a.maxed !== b.maxed) return a.maxed ? 1 : -1;
+    if (a.canAfford !== b.canAfford) return a.canAfford ? -1 : 1;
+    return a.cost - b.cost;
   });
 
   withMeta.forEach(({ u, lvl, maxed, cost, canAfford }) => {
@@ -2210,17 +2307,50 @@ function renderUpgrades() {
     if (!maxed && canAfford) card.onclick = () => buyUpgrade(u.id);
     container.appendChild(card);
   });
+
+  // Prestige-only upgrades section
+  if (myPrestigeRank >= 1) {
+    const header = document.createElement('div');
+    header.className = 'prestige-section-header';
+    header.innerHTML = '🔮 Deep Mine Upgrades';
+    container.appendChild(header);
+
+    PRESTIGE_UPGRADES.forEach(u => {
+      const lvl = selfState?.upgradeLevels?.[u.id] || 0;
+      const maxed = lvl >= u.maxLevel;
+      const cost = maxed ? Infinity : upgradeCostClient(u.id, lvl);
+      const canAfford = !maxed && cash >= cost;
+      const card = document.createElement('div');
+      card.className = 'upgrade-card ' + (maxed ? 'maxed' : canAfford ? 'can-afford' : 'cant-afford');
+      card.style.borderColor = maxed ? 'var(--emerald)' : canAfford ? '#9040f0' : '';
+      const isAfk = u.type === 'autoMine';
+      const afkBadge = isAfk ? `<span class="upg-afk-badge" style="background:rgba(144,64,240,.15);color:#c080ff;border-color:rgba(144,64,240,.3)">AFK 🔮</span>` : '';
+      card.innerHTML = `
+        <div class="upg-header">
+          <div class="upg-name">${u.emoji} ${u.name}${afkBadge}</div>
+          <div class="upg-level">${lvl}/${u.maxLevel}</div>
+        </div>
+        <div class="upg-desc">${u.desc}</div>
+        <div class="upg-footer">
+          <div class="upg-cost" style="color:#c080ff">${maxed ? '✅ MAXED' : '$' + cost.toLocaleString()}</div>
+          <div class="upg-effect">${maxed ? 'Max level' : canAfford ? '▶ Click to buy' : 'Need more cash'}</div>
+        </div>`;
+      if (!maxed && canAfford) card.onclick = () => buyUpgrade(u.id);
+      container.appendChild(card);
+    });
+  }
 }
 
 function buyUpgrade(upgradeId) {
   socket.emit('game:upgrade', { upgradeId }, (res) => {
     if (!res.ok) { showToast('❌','Cannot buy', res.error); return; }
     selfState = res.self;
-    const u = UPGRADES.find(x => x.id === upgradeId);
+    const u = [...UPGRADES, ...PRESTIGE_UPGRADES].find(x => x.id === upgradeId);
     showToast(u.emoji, 'Upgraded!', `${u.name} is now level ${selfState.upgradeLevels[upgradeId]}`);
     updateStats();
     syncOrbitMiners();
     renderUpgrades();
+    updatePrestigeButton();
   });
 }
 
@@ -2235,6 +2365,52 @@ function updateStats() {
   const auto = selfState.autoMine > 0 ? ` + ${selfState.autoMine}/s AFK` : '';
   document.getElementById('mine-power-display').textContent = `+${gpc}/click (${chance}%)${auto}`;
   renderInventory();
+  updatePrestigeButton();
+}
+
+function updatePrestigeButton() {
+  const wrap = document.getElementById('prestige-btn-wrap');
+  const btn = document.getElementById('prestige-btn');
+  const info = document.getElementById('prestige-info');
+  if (!wrap || !btn || !info || !selfState) return;
+
+  const currentRank = selfState.prestigeRank || 0;
+  const nextRankDef = PRESTIGE_RANKS[currentRank];
+  if (!nextRankDef) {
+    // Max prestige reached
+    wrap.style.display = 'block';
+    btn.disabled = true;
+    btn.textContent = '👁 MAX PRESTIGE REACHED';
+    info.textContent = 'You have conquered all depths.';
+    return;
+  }
+
+  const lifetime = (selfState.lifetimeEarned || 0) + (selfState.totalEarned || 0);
+  const threshold = nextRankDef.threshold;
+  const canPrestige = lifetime >= threshold;
+  wrap.style.display = 'block';
+  btn.disabled = !canPrestige;
+  btn.textContent = `${nextRankDef.emoji} Prestige ${nextRankDef.label} — Go Deeper!`;
+  if (canPrestige) {
+    info.textContent = `Ready! Resets upgrades. Grants +${Math.round(nextRankDef.bonus*100)}% permanent gem value.`;
+    info.style.color = 'var(--emerald)';
+  } else {
+    const needed = threshold - lifetime;
+    info.textContent = `Requires $${threshold.toLocaleString()} lifetime earned. Need $${needed.toLocaleString()} more.`;
+    info.style.color = '';
+  }
+}
+
+function doPrestige() {
+  socket.emit('game:prestige', {}, (res) => {
+    if (!res.ok) { showToast('❌', 'Cannot Prestige', res.error); return; }
+    // prestige:achieved event will handle the UI
+  });
+}
+
+function dismissPrestige() {
+  const overlay = document.getElementById('prestige-overlay');
+  if (overlay) overlay.classList.remove('show');
 }
 
 function calcInventoryValueLocal() {
@@ -2352,7 +2528,7 @@ function renderPlayers() {
       ? `<span class="team-badge team-${p.team.toLowerCase()}">Team ${p.team}</span>` : '';
     div.innerHTML = `<div class="pr-top">
       <div class="pr-avatar">${p.avatar}</div>
-      <div class="pr-name" style="color:${p.color}">${p.name}${isYou?' <span style="font-size:.65rem;background:var(--gold);color:#1a1200;padding:.1rem .3rem;border-radius:2px;font-family:Share Tech Mono,monospace">YOU</span>':''}${teamBadge}</div>
+      <div class="pr-name" style="color:${p.color}">${p.name}${isYou?' <span style="font-size:.65rem;background:var(--gold);color:#1a1200;padding:.1rem .3rem;border-radius:2px;font-family:Share Tech Mono,monospace">YOU</span>':''}${teamBadge}${prestigeBadgeHTML(p.prestigeRank)}</div>
       <div class="pr-gems">$${(p.profit||0).toLocaleString()}</div></div>
       <div class="pr-bar-wrap"><div class="pr-bar" style="width:${barW}%;background:${p.color}"></div></div>
       <div class="pr-stats-row">
@@ -2461,7 +2637,7 @@ function showEndScreen(results, mode, awards) {
     div.className = 'lb-row ' + (i===0?'first':'');
     const teamTag = resolvedMode === 'teams' && p.team ? ` <span class="team-badge team-${p.team.toLowerCase()}">Team ${p.team}</span>` : '';
     div.innerHTML = `<div class="lb-rank">${medals[i]||i+1}</div>
-      <div class="lb-name">${p.avatar} ${p.name}${teamTag}</div>
+      <div class="lb-name">${p.avatar} ${p.name}${teamTag}${prestigeBadgeHTML(p.prestigeRank)}</div>
       <div>
         <div class="lb-gems">$${(p.totalEarned||p.profit||0).toLocaleString()}</div>
         ${(p.unsoldValue||0)>0?`<div class="lb-sub">+$${p.unsoldValue.toLocaleString()} unsold</div>`:''}
