@@ -2377,7 +2377,6 @@ function updatePrestigeButton() {
   const currentRank = selfState.prestigeRank || 0;
   const nextRankDef = PRESTIGE_RANKS[currentRank];
   if (!nextRankDef) {
-    // Max prestige reached
     wrap.style.display = 'block';
     btn.disabled = true;
     btn.textContent = '👁 MAX PRESTIGE REACHED';
@@ -2385,18 +2384,27 @@ function updatePrestigeButton() {
     return;
   }
 
-  const lifetime = (selfState.lifetimeEarned || 0) + (selfState.totalEarned || 0);
-  const threshold = nextRankDef.threshold;
-  const canPrestige = lifetime >= threshold;
+  // Check if all base upgrades are maxed
+  const allMaxed = UPGRADES.every(u => {
+    const lvl = selfState.upgradeLevels?.[u.id] || 0;
+    if (u.type === 'sabotageShield' || u.type === 'bulkSell') return lvl >= 1;
+    return lvl >= u.maxLevel;
+  });
+
+  const remaining = UPGRADES.filter(u => {
+    const lvl = selfState.upgradeLevels?.[u.id] || 0;
+    if (u.type === 'sabotageShield' || u.type === 'bulkSell') return lvl < 1;
+    return lvl < u.maxLevel;
+  }).length;
+
   wrap.style.display = 'block';
-  btn.disabled = !canPrestige;
+  btn.disabled = !allMaxed;
   btn.textContent = `${nextRankDef.emoji} Prestige ${nextRankDef.label} — Go Deeper!`;
-  if (canPrestige) {
-    info.textContent = `Ready! Resets upgrades. Grants +${Math.round(nextRankDef.bonus*100)}% permanent gem value.`;
+  if (allMaxed) {
+    info.textContent = `All upgrades maxed! Resets upgrades. Grants +${Math.round(nextRankDef.bonus*100)}% permanent gem value.`;
     info.style.color = 'var(--emerald)';
   } else {
-    const needed = threshold - lifetime;
-    info.textContent = `Requires $${threshold.toLocaleString()} lifetime earned. Need $${needed.toLocaleString()} more.`;
+    info.textContent = `Max all upgrades to prestige. ${remaining} upgrade${remaining !== 1 ? 's' : ''} remaining.`;
     info.style.color = '';
   }
 }
