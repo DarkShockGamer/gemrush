@@ -924,17 +924,20 @@ io.on('connection', (socket) => {
     if (!p) return callback?.({ ok: false });
 
     const currentRank = p.state.prestigeRank || 0;
-    const nextRankDef = PRESTIGE_RANKS[currentRank]; // index = currentRank (0-based)
+    const nextRankDef = PRESTIGE_RANKS[currentRank];
     if (!nextRankDef) return callback?.({ ok: false, error: 'Already at max prestige.' });
 
-    // Threshold is on lifetime earned across this entire session's games
-    const lifetime = (p.state.lifetimeEarned || 0) + p.state.totalEarned;
-    if (lifetime < nextRankDef.threshold) {
-      return callback?.({ ok: false, error: `Need $${nextRankDef.threshold.toLocaleString()} lifetime earned.` });
-    }
+    // Require all base UPGRADES to be fully maxed
+    const allMaxed = UPGRADES.every(u => {
+      const lvl = p.state.upgradeLevels?.[u.id] || 0;
+      if (u.type === 'sabotageShield' || u.type === 'bulkSell') return lvl >= 1;
+      return lvl >= u.maxLevel;
+    });
+    if (!allMaxed) return callback?.({ ok: false, error: 'Max out all upgrades first.' });
 
     const newRank = currentRank + 1;
     const totalBonus = (p.state.prestigeBonus || 0) + nextRankDef.bonus;
+    const lifetime = (p.state.lifetimeEarned || 0) + p.state.totalEarned;
 
     // Carry prestige data into the reset
     const pd = {
