@@ -1433,6 +1433,7 @@ function initSocket() {
     updateStats();
     syncOrbitMiners();
     if (currentTab === 'upgrades') renderUpgrades();
+    if (currentTab === 'players') renderPlayers();
     if (currentTab === 'achievements') renderAchievements();
     if (currentTab === 'sabotage') renderSabotage();
     // Frozen overlay
@@ -2836,7 +2837,7 @@ function showRareFindBanner(data) {
 // Fires a desktop notification when a new public lobby appears, but only:
 //  1. The tab is hidden (user is elsewhere)
 //  2. At most once every 5 minutes (not spammy)
-//  3. User has granted permission
+//  3. User has granted browser permission AND hasn't opted out
 
 const NOTIF_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 const NOTIF_POLL_INTERVAL_MS = 30 * 1000; // check every 30 seconds
@@ -2849,30 +2850,55 @@ function getLastNotifTime() {
 function setLastNotifTime() {
   localStorage.setItem('gemrush_last_notif', Date.now().toString());
 }
+// Opt-out is stored in localStorage so it survives refreshes/updates
+function isNotifOptedOut() {
+  return localStorage.getItem('gemrush_notif_optout') === '1';
+}
+function setNotifOptOut(val) {
+  if (val) localStorage.setItem('gemrush_notif_optout', '1');
+  else localStorage.removeItem('gemrush_notif_optout');
+}
+function notifEnabled() {
+  return 'Notification' in window &&
+    Notification.permission === 'granted' &&
+    !isNotifOptedOut();
+}
 function canSendNotif() {
-  return Notification.permission === 'granted' && (Date.now() - getLastNotifTime()) > NOTIF_COOLDOWN_MS;
+  return notifEnabled() && (Date.now() - getLastNotifTime()) > NOTIF_COOLDOWN_MS;
 }
 
 function updateNotifBtn() {
   const btn = document.getElementById('notif-btn');
   if (!btn || !('Notification' in window)) return;
   const perm = Notification.permission;
-  if (perm === 'granted') {
-    btn.className = 'notif-btn granted';
-    btn.textContent = '🔔 Notifications On';
-    btn.onclick = null;
-    btn.style.cursor = 'default';
-  } else if (perm === 'denied') {
+
+  if (perm === 'denied') {
     btn.className = 'notif-btn denied';
     btn.textContent = '🔕 Blocked';
     btn.title = 'Notifications are blocked. Enable them in your browser settings.';
     btn.onclick = null;
+  } else if (perm === 'granted' && !isNotifOptedOut()) {
+    // ON — clicking turns them off
+    btn.className = 'notif-btn granted';
+    btn.textContent = '🔔 Notifications On';
+    btn.title = 'Click to turn off lobby notifications';
+    btn.style.cursor = 'pointer';
+    btn.onclick = disableNotifs;
   } else {
+    // default or opted-out — clicking requests / re-enables
     btn.className = 'notif-btn';
     btn.textContent = '🔔 Notify Me';
-    btn.onclick = requestNotifPermission;
+    btn.title = 'Get notified when a public lobby opens';
     btn.style.cursor = 'pointer';
+    btn.onclick = requestNotifPermission;
   }
+}
+
+function disableNotifs() {
+  setNotifOptOut(true);
+  stopNotifPolling();
+  updateNotifBtn();
+  showToast('🔕', 'Notifications Off', 'Click "Notify Me" anytime to turn them back on.');
 }
 
 async function requestNotifPermission() {
@@ -2880,15 +2906,23 @@ async function requestNotifPermission() {
     showToast('⚠️', 'Not Supported', 'This browser does not support notifications.');
     return;
   }
-  if (Notification.permission === 'granted') return;
-  const perm = await Notification.requestPermission();
-  updateNotifBtn();
-  if (perm === 'granted') {
-    showToast('🔔', 'Notifications On', "We'll ping you when a public lobby opens (max once per 5 min).");
+  // If already granted but opted out, just re-enable without re-prompting
+  if (Notification.permission === 'granted') {
+    setNotifOptOut(false);
+    updateNotifBtn();
     startNotifPolling();
+    showToast('🔔', 'Notifications On', "We'll ping you when a public lobby opens (max once per 5 min).");
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    setNotifOptOut(false);
+    startNotifPolling();
+    showToast('🔔', 'Notifications On', "We'll ping you when a public lobby opens (max once per 5 min).");
   } else if (perm === 'denied') {
     showToast('🔕', 'Blocked', 'Enable notifications in your browser settings to use this feature.');
   }
+  updateNotifBtn();
 }
 
 function fireLobbyNotif(lobby) {
@@ -2909,23 +2943,21 @@ function fireLobbyNotif(lobby) {
 async function pollForLobbies() {
   // Only notify if tab is hidden — no point pinging someone already watching
   if (!document.hidden) return;
-  if (Notification.permission !== 'granted') return;
+  if (!notifEnabled()) return;
   try {
     const lobbies = await fetch('/api/lobbies').then(r => r.json());
     for (const lobby of lobbies) {
       if (!knownLobbySet.has(lobby.code)) {
-        // New lobby discovered — fire notification (throttle enforced inside)
         fireLobbyNotif(lobby);
       }
     }
-    // Update known set so we don't re-notify on the same lobbies
     knownLobbySet = new Set(lobbies.map(l => l.code));
   } catch (e) { /* network hiccup, ignore */ }
 }
 
 function startNotifPolling() {
   if (notifPollTimer) return; // already running
-  if (Notification.permission !== 'granted') return;
+  if (!notifEnabled()) return;
   notifPollTimer = setInterval(pollForLobbies, NOTIF_POLL_INTERVAL_MS);
 }
 
@@ -2933,10 +2965,10 @@ function stopNotifPolling() {
   if (notifPollTimer) { clearInterval(notifPollTimer); notifPollTimer = null; }
 }
 
-// Kick off polling on load if already granted
+// On load: restore button state and restart polling if still enabled
 document.addEventListener('DOMContentLoaded', () => {
   updateNotifBtn();
-  if (Notification.permission === 'granted') startNotifPolling();
+  if (notifEnabled()) startNotifPolling();
 });
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
