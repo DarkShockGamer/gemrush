@@ -79,7 +79,8 @@
   .game-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;flex-shrink:0;}
   .game-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:.1em;}
   .game-layout{display:grid;grid-template-columns:1fr 320px;flex:1;overflow:hidden;min-height:0;}
-  .mine-area{padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1.2rem;overflow-y:auto;}
+  .mine-area{padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1.2rem;overflow-y:hidden;}
+  .mine-scroll-zone{width:100%;max-width:480px;display:flex;flex-direction:column;gap:.8rem;overflow-y:auto;flex:1;min-height:0;padding-bottom:.5rem;}
   .stats-row{display:flex;gap:1rem;width:100%;max-width:480px;}
   .stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;text-align:center;}
   .stat-box .stat-val{font-family:'Share Tech Mono',monospace;font-size:1.3rem;color:var(--gold);display:block;}
@@ -168,7 +169,7 @@
   .mine-button.charging .charge-label{opacity:1;}
 
   /* ── INVENTORY / SELL ── */
-  .inventory-section{width:100%;max-width:480px;}
+  .inventory-section{width:100%;}
   .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;}
   .inv-title{font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);}
   .inv-sell-all-btn{font-family:'Bebas Neue',sans-serif;font-size:.85rem;letter-spacing:.1em;background:linear-gradient(135deg,var(--emerald),#22a060);color:#001a0a;border:none;border-radius:6px;padding:.25rem .8rem;cursor:pointer;transition:all .15s;}
@@ -305,6 +306,17 @@
 
   /* Mobile panel hint bar — sits above mine content, only visible on mobile */
   .mobile-panel-hint{display:none;}
+  /* ── Small laptop / Chromebook (701px–1100px) ── */
+  @media(min-width:701px) and (max-width:1100px){
+    .game-layout{grid-template-columns:1fr 280px;}
+    .mine-area{padding:.8rem 1rem;gap:.7rem;}
+    .orbit-zone{width:240px;height:240px;}
+    .mine-button{width:155px;height:155px;}
+    .mine-button .pick-icon{font-size:3rem;}
+    .stat-box .stat-val{font-size:1.1rem;}
+    .mine-scroll-zone{gap:.6rem;}
+  }
+
   @media(max-width:700px){
     .mobile-panel-hint{
       display:flex;align-items:center;justify-content:center;
@@ -455,16 +467,23 @@
   @media(max-width:700px){
     #game-screen{height:100dvh;}
     .game-layout{grid-template-columns:1fr;grid-template-rows:1fr auto;height:100%;}
-    .mine-area{padding:.75rem;gap:.6rem;overflow-y:hidden;}
+    .mine-area{padding:.5rem .75rem;gap:.4rem;overflow-y:hidden;flex-direction:column;}
+    .mine-scroll-zone{gap:.5rem;}
     .upgrade-panel{border-left:none;border-top:1px solid var(--border);flex-shrink:0;transition:height .25s cubic-bezier(.4,0,.2,1);}
     .upgrade-panel.panel-collapsed{height:42px;overflow:hidden;}
     .upgrade-panel.panel-open{height:300px;}
-    .mine-button{width:140px;height:140px;}
-    .mine-button .pick-icon{font-size:2.5rem;}
-    .orbit-zone{width:220px;height:220px;}
-    .stats-row{gap:.5rem;}
-    .stat-box{padding:.5rem .6rem;}
-    .stat-box .stat-val{font-size:1rem;}
+    .mine-button{width:120px;height:120px;}
+    .mine-button .pick-icon{font-size:2.2rem;}
+    .orbit-zone{width:190px;height:190px;}
+    .stats-row{gap:.4rem;}
+    .stat-box{padding:.4rem .5rem;}
+    .stat-box .stat-val{font-size:.95rem;}
+    .stat-box .stat-lbl{font-size:.6rem;}
+    .mine-label{display:none;}
+    .mine-power{font-size:.75rem;padding:.2rem .6rem;}
+    .kbd-hint{display:none;}
+    .prestige-btn{font-size:.95rem;padding:.5rem .8rem;}
+    .prestige-info{font-size:.65rem;}
   }
 
   /* ── COUNTDOWN OVERLAY ── */
@@ -809,8 +828,11 @@
         </div>
         <div class="mine-label">Click to Mine</div>
         <div class="mine-power" id="mine-power-display">+1 gem / click (55% chance)</div>
-        <div style="font-size:.7rem;color:var(--muted);letter-spacing:.08em;opacity:.6;"><kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;">Space</kbd> Mine &nbsp; <kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;">S</kbd> Sell All</div>
+        <div class="kbd-hint" style="font-size:.7rem;color:var(--muted);letter-spacing:.08em;opacity:.6;"><kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;">Space</kbd> Mine &nbsp; <kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.1rem .35rem;">S</kbd> Sell All</div>
       </div>
+
+      <!-- Scrollable zone: inventory + status + prestige -->
+      <div class="mine-scroll-zone">
 
       <!-- Inventory + Sell -->
       <div class="inventory-section">
@@ -839,6 +861,8 @@
         <button class="prestige-btn" id="prestige-btn" onclick="doPrestige()">🌑 Go Deeper — Prestige!</button>
         <div class="prestige-info" id="prestige-info"></div>
       </div>
+
+      </div><!-- /mine-scroll-zone -->
     </div>
     <div class="upgrade-panel" id="upgrade-panel">
       <div class="panel-tabs">
