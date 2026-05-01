@@ -166,6 +166,7 @@ function createPlayerState(name, avatarIndex, colorIndex, prestigeData) {
     totalClicks: 0,
     clickChance: 0.55,
     gemsPerClick: 1,
+    clickRemainder: 0,
     autoMine: 0,
     valueMultiplier: 1 + (pd.prestigeBonus || 0),
     rarityBonus: 0,
@@ -731,7 +732,12 @@ io.on('connection', (socket) => {
     // Pickaxe jam: halve gems per click
     const isJammed = p.state.pickaxeJamUntil && Date.now() < p.state.pickaxeJamUntil;
     const effectiveGpc = isJammed ? Math.max(1, p.state.gemsPerClick / 2) : p.state.gemsPerClick;
-    const count = Math.min(Math.ceil(effectiveGpc), cap - held);
+    // Fractional accumulator: carry over the decimal portion across clicks
+    // so 3.5/click alternates +3, +4, +3, +4 rather than always rounding up to +4
+    p.state.clickRemainder = (p.state.clickRemainder || 0) + effectiveGpc;
+    const wholeGems = Math.floor(p.state.clickRemainder);
+    p.state.clickRemainder -= wholeGems;
+    const count = Math.min(wholeGems, cap - held);
     const drops = [];
     for (let i = 0; i < count; i++) {
       const gem = rollGem(p.state);
