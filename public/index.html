@@ -291,6 +291,12 @@
   /* Server list */
   .server-row{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .12s;}
   .server-row:hover{border-color:var(--gold);}
+
+  /* Notification opt-in button */
+  .notif-btn{display:flex;align-items:center;gap:.4rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:.25rem .65rem;font-size:.78rem;font-family:'Share Tech Mono',monospace;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .notif-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .notif-btn.granted{color:var(--emerald);border-color:var(--emerald);}
+  .notif-btn.denied{color:var(--ruby);border-color:var(--ruby);cursor:default;opacity:.6;}
   .server-row-info{flex:1;}
   .server-row-code{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);}
   .server-row-meta{font-size:.75rem;color:var(--muted);margin-top:.1rem;}
@@ -643,7 +649,10 @@
     <div class="divider">OR BROWSE OPEN LOBBIES</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
       <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);">Public Lobbies</div>
-      <button onclick="refreshServerList()" style="background:none;border:none;color:var(--muted);font-size:.85rem;cursor:pointer;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);">🔄 Refresh</button>
+      <div style="display:flex;gap:.4rem;align-items:center;">
+        <button id="notif-btn" class="notif-btn" onclick="requestNotifPermission()" title="Get notified when a public lobby opens">🔔 Notify Me</button>
+        <button onclick="refreshServerList()" style="background:none;border:none;color:var(--muted);font-size:.85rem;cursor:pointer;padding:.2rem .5rem;border-radius:4px;border:1px solid var(--border);">🔄 Refresh</button>
+      </div>
     </div>
     <div id="server-list" style="min-height:60px;"></div>
   </div>
@@ -2793,6 +2802,113 @@ function showRareFindBanner(data) {
   document.body.appendChild(banner);
   setTimeout(() => banner.remove(), 4700);
 }
+
+// ─── Lobby Notifications ───────────────────────────────────────────────────────
+// Fires a desktop notification when a new public lobby appears, but only:
+//  1. The tab is hidden (user is elsewhere)
+//  2. At most once every 5 minutes (not spammy)
+//  3. User has granted permission
+
+const NOTIF_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+const NOTIF_POLL_INTERVAL_MS = 30 * 1000; // check every 30 seconds
+let notifPollTimer = null;
+let knownLobbySet = new Set(); // codes we've already seen
+
+function getLastNotifTime() {
+  return parseInt(localStorage.getItem('gemrush_last_notif') || '0', 10);
+}
+function setLastNotifTime() {
+  localStorage.setItem('gemrush_last_notif', Date.now().toString());
+}
+function canSendNotif() {
+  return Notification.permission === 'granted' && (Date.now() - getLastNotifTime()) > NOTIF_COOLDOWN_MS;
+}
+
+function updateNotifBtn() {
+  const btn = document.getElementById('notif-btn');
+  if (!btn || !('Notification' in window)) return;
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    btn.className = 'notif-btn granted';
+    btn.textContent = '🔔 Notifications On';
+    btn.onclick = null;
+    btn.style.cursor = 'default';
+  } else if (perm === 'denied') {
+    btn.className = 'notif-btn denied';
+    btn.textContent = '🔕 Blocked';
+    btn.title = 'Notifications are blocked. Enable them in your browser settings.';
+    btn.onclick = null;
+  } else {
+    btn.className = 'notif-btn';
+    btn.textContent = '🔔 Notify Me';
+    btn.onclick = requestNotifPermission;
+    btn.style.cursor = 'pointer';
+  }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) {
+    showToast('⚠️', 'Not Supported', 'This browser does not support notifications.');
+    return;
+  }
+  if (Notification.permission === 'granted') return;
+  const perm = await Notification.requestPermission();
+  updateNotifBtn();
+  if (perm === 'granted') {
+    showToast('🔔', 'Notifications On', "We'll ping you when a public lobby opens (max once per 5 min).");
+    startNotifPolling();
+  } else if (perm === 'denied') {
+    showToast('🔕', 'Blocked', 'Enable notifications in your browser settings to use this feature.');
+  }
+}
+
+function fireLobbyNotif(lobby) {
+  if (!canSendNotif()) return;
+  setLastNotifTime();
+  const modeLabel = lobby.gameMode === 'timed'
+    ? `⏱ Timed (${Math.round(lobby.gameDuration / 60)}m)`
+    : lobby.gameMode === 'teams' ? '🤝 Teams' : '♾️ Unlimited';
+  const n = new Notification('⛏ GEM RUSH — Lobby Open!', {
+    body: `${lobby.hostName} is hosting a ${modeLabel} game · ${lobby.playerCount}/${lobby.maxPlayers} players · Code: ${lobby.code}`,
+    icon: '/favicon.svg',
+    tag: 'gemrush-lobby',   // replaces previous notif instead of stacking
+    renotify: false,
+  });
+  n.onclick = () => { window.focus(); n.close(); showJoinCard(); };
+}
+
+async function pollForLobbies() {
+  // Only notify if tab is hidden — no point pinging someone already watching
+  if (!document.hidden) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    const lobbies = await fetch('/api/lobbies').then(r => r.json());
+    for (const lobby of lobbies) {
+      if (!knownLobbySet.has(lobby.code)) {
+        // New lobby discovered — fire notification (throttle enforced inside)
+        fireLobbyNotif(lobby);
+      }
+    }
+    // Update known set so we don't re-notify on the same lobbies
+    knownLobbySet = new Set(lobbies.map(l => l.code));
+  } catch (e) { /* network hiccup, ignore */ }
+}
+
+function startNotifPolling() {
+  if (notifPollTimer) return; // already running
+  if (Notification.permission !== 'granted') return;
+  notifPollTimer = setInterval(pollForLobbies, NOTIF_POLL_INTERVAL_MS);
+}
+
+function stopNotifPolling() {
+  if (notifPollTimer) { clearInterval(notifPollTimer); notifPollTimer = null; }
+}
+
+// Kick off polling on load if already granted
+document.addEventListener('DOMContentLoaded', () => {
+  updateNotifBtn();
+  if (Notification.permission === 'granted') startNotifPolling();
+});
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
 initSocket();
