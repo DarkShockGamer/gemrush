@@ -950,6 +950,7 @@ let frozenBannerEl = null;
 let frozenCheckInterval = null;
 let jamBannerEl = null;
 let jamCheckInterval = null;
+let _rankToastTimer = null; // timer for hiding the rank change toast
 // Track which orbiting miner elements exist
 const orbitMiners = {}; // upgradeId -> DOM element
 let chatOpen = false;
@@ -2558,15 +2559,23 @@ function showConfirm({ icon = '⚠️', title = 'Are you sure?', msg = '', okTex
 }
 
 function checkRankChange() {
+  // Only meaningful during an active game with multiple players
   if (!mySocketId || !allPlayers || allPlayers.length < 2) return;
+  const gameScreen = document.getElementById('game-screen');
+  if (!gameScreen || !gameScreen.classList.contains('active')) return;
 
-  // Build a merged snapshot: use allPlayers but substitute our own live profit
-  // so the rank reflects our real score even between game:state broadcasts
-  const myProfit = selfState ? (selfState.profit || 0) : 0;
+  // Compute local player's true score the same way the server does:
+  //   totalEarned (cumulative cash ever earned) + unsold inventory value
+  // selfState.totalEarned tracks all-time earnings; calcInventoryValueLocal() is the held bag value.
+  const myTotalEarned = selfState ? (selfState.totalEarned || 0) : 0;
+  const myUnsold = selfState ? calcInventoryValueLocal() : 0;
+  const myScore = myTotalEarned + myUnsold;
+
+  // Build snapshot: all players from last game:state broadcast, but replace our
+  // own entry with the freshest local data so rank is always up-to-date.
   const snapshot = allPlayers.map(p => {
     if (p.socketId === mySocketId) {
-      // Use live self state for our score — profit is always current
-      return { ...p, totalEarned: myProfit, unsoldValue: 0 };
+      return { ...p, totalEarned: myScore, unsoldValue: 0 };
     }
     return p;
   });
@@ -2602,19 +2611,19 @@ function showRankToast(dir, rank, total, detail) {
   const el = document.getElementById('rank-toast');
   if (!el) return;
 
-  // Cancel any pending hide
+  // Cancel any pending hide timer
   if (_rankToastTimer) { clearTimeout(_rankToastTimer); _rankToastTimer = null; }
 
   const medals = ['🥇','🥈','🥉','4️⃣'];
   const medal = medals[rank - 1] || `#${rank}`;
   const arrow = dir === 'up' ? '▲' : '▼';
 
-  // Strip classes + force reflow so animation ALWAYS restarts, even on rapid changes
+  // Clear ALL inline styles and classes, force a reflow so the animation
+  // restarts cleanly even if called back-to-back
+  el.removeAttribute('style');
   el.className = '';
   el.textContent = '';
-  el.style.opacity = '0';
-  el.style.transition = '';
-  void el.offsetWidth; // flush styles — forces animation to retrigger every time
+  void el.offsetWidth; // flush — forces animation keyframe to restart
 
   el.textContent = `${arrow} ${medal} of ${total}  —  ${detail}`;
   el.className = `rank-${dir} rank-show`;
@@ -2623,9 +2632,9 @@ function showRankToast(dir, rank, total, detail) {
     el.style.transition = 'opacity .3s';
     el.style.opacity = '0';
     setTimeout(() => {
+      el.removeAttribute('style');
       el.className = '';
       el.textContent = '';
-      el.style.transition = '';
     }, 320);
     _rankToastTimer = null;
   }, 3500);
