@@ -2496,16 +2496,7 @@ function toggleA11y(key, btn) {
   btn.className = 'a11y-toggle' + (!current ? ' on' : '');
 }
 
-// Show/hide accessibility button based on current screen
-const _origShowScreen = showScreen;
-function showScreen(id) {
-  _origShowScreen(id);
-  const a11yBtn = document.getElementById('a11y-btn');
-  if (a11yBtn) {
-    // Show only on title screen
-    a11yBtn.style.display = (id === 'title-screen') ? 'block' : 'none';
-  }
-}
+
 
 // ─── Charge Mechanic ───────────────────────────────────────────────────────────
 const CHARGE_MAX_MS = 1200; // max hold time for full charge
@@ -3305,6 +3296,8 @@ function clearSession() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  const a11yBtn = document.getElementById('a11y-btn');
+  if (a11yBtn) a11yBtn.style.display = (id === 'title-screen') ? 'block' : 'none';
 }
 function goTitle() {
   lobbyCode = null; isHost = false; isSpectator = false; selfState = null; allPlayers = []; myLastRank = null;
@@ -3775,9 +3768,10 @@ function stopNotifPolling() {
 document.addEventListener('DOMContentLoaded', () => {
   updateNotifBtn();
   if (notifEnabled()) startNotifPolling();
-  // Show a11y button on initial title screen
+  // Show a11y button only if title screen is the active screen on load
   const a11yBtn = document.getElementById('a11y-btn');
-  if (a11yBtn) a11yBtn.style.display = 'block';
+  const titleActive = document.getElementById('title-screen')?.classList.contains('active');
+  if (a11yBtn) a11yBtn.style.display = titleActive ? 'block' : 'none';
 });
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
