@@ -310,6 +310,9 @@ function broadcastGameState(lobby) {
     unsoldValue: calcInventoryValue(p.state),
     team: p.team,
     prestigeRank: p.state.prestigeRank || 0,
+    lives: p.state.lives,
+    maxLives: p.state.maxLives,
+    eliminated: p.state.eliminated || false,
   }));
   const spectatorCount = Object.keys(lobby.spectators || {}).length;
   io.to(lobby.code).emit('game:state', { players: snapshot, spectatorCount });
@@ -416,6 +419,9 @@ function playerSelfPayload(state) {
     prestigeRank: state.prestigeRank || 0,
     prestigeBonus: state.prestigeBonus || 0,
     lifetimeEarned: state.lifetimeEarned || 0,
+    lives: state.lives,
+    maxLives: state.maxLives,
+    eliminated: state.eliminated || false,
   };
 }
 
@@ -543,12 +549,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('lobby:create', ({ playerName, mode, duration, isPublic }, callback) => {
+  socket.on('lobby:create', ({ playerName, mode, duration, isPublic, rushTarget, lastMinerLives }, callback) => {
     let code;
     do { code = generateCode(); } while (lobbies.has(code));
     const gameMode = mode || 'unlimited';
     const gameDuration = gameMode === 'timed' ? (duration || 300) : null;
-    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, spectators: {}, timer: null, gameMode, gameDuration, isPublic: !!isPublic };
+    const rushGoal = gameMode === 'rushHour' ? (rushTarget || 10000) : null;
+    const maxLives = gameMode === 'lastMiner' ? (lastMinerLives || 3) : null;
+    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, spectators: {}, timer: null, gameMode, gameDuration, rushGoal, maxLives, isPublic: !!isPublic };
     const state = createPlayerState(playerName || 'Miner', 0, 0);
     lobby.players[socket.id] = { socketId: socket.id, state, team: 'A' };
     lobbies.set(code, lobby);
@@ -556,7 +564,7 @@ io.on('connection', (socket) => {
     socket.data.lobbyCode = code;
     const token = generateSessionToken();
     sessions.set(token, { lobbyCode: code, socketId: socket.id });
-    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token, mode: gameMode, duration: gameDuration });
+    callback({ ok: true, code, playerIndex: 0, self: playerSelfPayload(state), token, mode: gameMode, duration: gameDuration, rushGoal, maxLives });
     broadcastLobbyState(lobby);
   });
 
@@ -628,15 +636,17 @@ io.on('connection', (socket) => {
     broadcastLobbyState(lobby);
   });
 
-  socket.on('lobby:changeMode', ({ mode, duration }, callback) => {
+  socket.on('lobby:changeMode', ({ mode, duration, rushTarget, lastMinerLives }, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
     if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
     if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can change mode.' });
     if (lobby.status !== 'waiting') return callback?.({ ok: false, error: 'Cannot change mode during game.' });
     lobby.gameMode = mode || 'unlimited';
     lobby.gameDuration = lobby.gameMode === 'timed' ? (duration || 300) : null;
-    io.to(lobby.code).emit('lobby:modeChanged', { mode: lobby.gameMode, duration: lobby.gameDuration });
-    callback?.({ ok: true, mode: lobby.gameMode, duration: lobby.gameDuration });
+    lobby.rushGoal = lobby.gameMode === 'rushHour' ? (rushTarget || 10000) : null;
+    lobby.maxLives = lobby.gameMode === 'lastMiner' ? (lastMinerLives || 3) : null;
+    io.to(lobby.code).emit('lobby:modeChanged', { mode: lobby.gameMode, duration: lobby.gameDuration, rushGoal: lobby.rushGoal, maxLives: lobby.maxLives });
+    callback?.({ ok: true, mode: lobby.gameMode, duration: lobby.gameDuration, rushGoal: lobby.rushGoal, maxLives: lobby.maxLives });
   });
 
   socket.on('lobby:leave', (_, callback) => {
@@ -817,13 +827,23 @@ io.on('connection', (socket) => {
     setTimeout(() => {
       if (lobby.status !== 'countdown') return;
       lobby.status = 'playing';
-      io.to(lobby.code).emit('game:started', { mode: lobby.gameMode, duration: lobby.gameDuration });
+      io.to(lobby.code).emit('game:started', { mode: lobby.gameMode, duration: lobby.gameDuration, rushGoal: lobby.rushGoal, maxLives: lobby.maxLives });
       startAutoMineInterval(lobby);
       broadcastGameState(lobby);
       if (lobby.gameMode === 'timed' && lobby.gameDuration) {
         lobby.timedEnd = setTimeout(() => {
           if (lobby.status === 'playing') endGame(lobby);
         }, lobby.gameDuration * 1000);
+      }
+      // Rush Hour: no timer, check on sells
+      // Last Miner: give all players lives
+      if (lobby.gameMode === 'lastMiner') {
+        for (const p of Object.values(lobby.players)) {
+          p.state.lives = lobby.maxLives || 3;
+          p.state.maxLives = lobby.maxLives || 3;
+          p.state.eliminated = false;
+        }
+        broadcastGameState(lobby);
       }
     }, 3000);
   });
@@ -888,6 +908,9 @@ io.on('connection', (socket) => {
     if (!lobby || lobby.status !== 'playing') return;
     const p = lobby.players[socket.id];
     if (!p) return;
+
+    // Last Miner: eliminated players cannot mine
+    if (p.state.eliminated) return callback?.({ ok: false, error: 'You have been eliminated.' });
 
     p.state.totalClicks++;
 
@@ -1002,6 +1025,11 @@ io.on('connection', (socket) => {
     if (newAch.length) socket.emit('achievements:unlocked', newAch);
     broadcastGameState(lobby);
     callback?.({ ok: true, earned, self: playerSelfPayload(p.state) });
+
+    // Rush Hour: check if this player hit the profit target
+    if (lobby.gameMode === 'rushHour' && lobby.rushGoal && p.state.totalEarned >= lobby.rushGoal) {
+      if (lobby.status === 'playing') endGame(lobby);
+    }
   });
 
   socket.on('game:upgrade', ({ upgradeId }, callback) => {
@@ -1106,6 +1134,35 @@ io.on('connection', (socket) => {
         target.state.pickaxeJamUntil = now + jamDuration;
         io.to(targetSocketId).emit('sabotage:hit', { sabotageId, attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar, duration: 20 });
         break;
+      }
+    }
+
+    // Last Miner Standing: lethal sabotages cost a life
+    if (lobby.gameMode === 'lastMiner' && !target.state.eliminated) {
+      const lethalSabotages = ['freeze', 'cursed_vein', 'pickaxe_jam'];
+      if (lethalSabotages.includes(sabotageId)) {
+        target.state.lives = Math.max(0, (target.state.lives || 1) - 1);
+        io.to(targetSocketId).emit('lastMiner:lifeLost', {
+          livesLeft: target.state.lives,
+          attackerName: attacker.state.name,
+          attackerAvatar: attacker.state.avatar,
+          sabotageId,
+        });
+        io.to(socket.id).emit('lastMiner:lifeStolen', {
+          targetName: target.state.name,
+          targetAvatar: target.state.avatar,
+          livesLeft: target.state.lives,
+        });
+        if (target.state.lives <= 0) {
+          target.state.eliminated = true;
+          io.to(targetSocketId).emit('lastMiner:eliminated', { attackerName: attacker.state.name, attackerAvatar: attacker.state.avatar });
+          io.to(lobby.code).emit('lastMiner:playerOut', { name: target.state.name, avatar: target.state.avatar });
+          // Check if only 1 active player remains
+          const alive = Object.values(lobby.players).filter(pl => !pl.state.eliminated);
+          if (alive.length <= 1) {
+            if (lobby.status === 'playing') endGame(lobby);
+          }
+        }
       }
     }
 
