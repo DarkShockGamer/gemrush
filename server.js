@@ -131,7 +131,7 @@ const PLAYER_AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍
 const PLAYER_COLORS  = ['#f5c842','#e84040','#30d97a','#4090f5'];
 
 const lobbies = new Map();
-const sessions = new Map(); // sessionToken -> { lobbyCode, socketId, playerName }
+const sessions = new Map(); // sessionToken -> { lobbyCode, socketId, playerName, isSpectator }
 
 // Public lobby list endpoint
 app.get('/api/lobbies', (req, res) => {
@@ -145,6 +145,21 @@ app.get('/api/lobbies', (req, res) => {
         gameMode: lobby.gameMode,
         gameDuration: lobby.gameDuration,
         hostName: Object.values(lobby.players)[0]?.state?.name || 'Unknown',
+      });
+    }
+  }
+  // Also expose in-progress lobbies for spectating
+  for (const [code, lobby] of lobbies.entries()) {
+    if (lobby.isPublic && lobby.status === 'playing') {
+      publicLobbies.push({
+        code,
+        playerCount: Object.keys(lobby.players).length,
+        spectatorCount: Object.keys(lobby.spectators || {}).length,
+        maxPlayers: MAX_PLAYERS,
+        gameMode: lobby.gameMode,
+        gameDuration: lobby.gameDuration,
+        hostName: Object.values(lobby.players)[0]?.state?.name || 'Unknown',
+        inProgress: true,
       });
     }
   }
@@ -257,6 +272,7 @@ function checkAchievements(player) {
 
 function broadcastLobbyState(lobby) {
   const players = Object.values(lobby.players);
+  const spectators = Object.values(lobby.spectators || {});
   io.to(lobby.code).emit('lobby:state', {
     code: lobby.code,
     status: lobby.status,
@@ -269,6 +285,11 @@ function broadcastLobbyState(lobby) {
       name: p.state.name,
       avatar: p.state.avatar,
       color: p.state.color,
+    })),
+    spectators: spectators.map(s => ({
+      socketId: s.socketId,
+      name: s.name,
+      avatar: s.avatar,
     })),
   });
 }
@@ -290,7 +311,8 @@ function broadcastGameState(lobby) {
     team: p.team,
     prestigeRank: p.state.prestigeRank || 0,
   }));
-  io.to(lobby.code).emit('game:state', { players: snapshot });
+  const spectatorCount = Object.keys(lobby.spectators || {}).length;
+  io.to(lobby.code).emit('game:state', { players: snapshot, spectatorCount });
 }
 
 function calcInventoryValue(state) {
@@ -526,7 +548,7 @@ io.on('connection', (socket) => {
     do { code = generateCode(); } while (lobbies.has(code));
     const gameMode = mode || 'unlimited';
     const gameDuration = gameMode === 'timed' ? (duration || 300) : null;
-    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, timer: null, gameMode, gameDuration, isPublic: !!isPublic };
+    const lobby = { code, status: 'waiting', hostId: socket.id, players: {}, spectators: {}, timer: null, gameMode, gameDuration, isPublic: !!isPublic };
     const state = createPlayerState(playerName || 'Miner', 0, 0);
     lobby.players[socket.id] = { socketId: socket.id, state, team: 'A' };
     lobbies.set(code, lobby);
@@ -541,8 +563,57 @@ io.on('connection', (socket) => {
   socket.on('lobby:join', ({ playerName, code }, callback) => {
     const lobby = lobbies.get(code.toUpperCase());
     if (!lobby) return callback({ ok: false, error: 'Lobby not found.' });
-    if (lobby.status === 'playing') return callback({ ok: false, error: 'Game already in progress. Wait for it to end.' });
     if (lobby.status === 'ended') return callback({ ok: false, error: 'This game has ended.' });
+
+    // Allow joining as spectator if game is in progress
+    if (lobby.status === 'playing' || lobby.status === 'countdown') {
+      const spectatorName = (playerName || 'Spectator').trim().slice(0, 16);
+      const spectatorAvatars = ['👁','🍿','📺','🎭','👻'];
+      const spectatorAvatar = spectatorAvatars[Object.keys(lobby.spectators || {}).length % spectatorAvatars.length];
+      if (!lobby.spectators) lobby.spectators = {};
+      lobby.spectators[socket.id] = { socketId: socket.id, name: spectatorName, avatar: spectatorAvatar };
+      socket.join(code.toUpperCase());
+      socket.data.lobbyCode = code.toUpperCase();
+      socket.data.isSpectator = true;
+      const token = generateSessionToken();
+      sessions.set(token, { lobbyCode: code.toUpperCase(), socketId: socket.id, isSpectator: true });
+
+      // Send current game state snapshot to new spectator
+      const snapshot = Object.entries(lobby.players).map(([sid, p]) => ({
+        socketId: sid,
+        name: p.state.name,
+        avatar: p.state.avatar,
+        color: p.state.color,
+        totalGems: p.state.totalGems,
+        profit: p.state.profit,
+        totalEarned: p.state.totalEarned,
+        totalClicks: p.state.totalClicks,
+        autoMine: p.state.autoMine,
+        upgradesBought: p.state.upgradesBought,
+        achievementsUnlocked: p.state.achievementsUnlocked,
+        unsoldValue: calcInventoryValue(p.state),
+        team: p.team,
+        prestigeRank: p.state.prestigeRank || 0,
+      }));
+
+      callback({ ok: true, code: code.toUpperCase(), isSpectator: true, token, mode: lobby.gameMode, duration: lobby.gameDuration, spectatorName, spectatorAvatar });
+
+      // Notify lobby of new spectator via chat
+      io.to(lobby.code).emit('lobby:chatMessage', {
+        name: 'System',
+        avatar: '👁',
+        color: '#6a7090',
+        text: `${spectatorAvatar} ${spectatorName} joined as spectator`,
+        socketId: 'system',
+        isSpectator: true,
+      });
+
+      // Send current game state to spectator
+      socket.emit('game:state', { players: snapshot, spectatorCount: Object.keys(lobby.spectators).length });
+      broadcastGameState(lobby);
+      return;
+    }
+
     const count = Object.keys(lobby.players).length;
     if (count >= MAX_PLAYERS) return callback({ ok: false, error: 'Lobby is full.' });
     const state = createPlayerState(playerName || 'Miner', count, count);
@@ -624,18 +695,24 @@ io.on('connection', (socket) => {
 
   socket.on('lobby:chat', ({ text }, callback) => {
     const lobby = lobbies.get(socket.data.lobbyCode);
-    if (!lobby || lobby.status !== 'waiting') return callback?.({ ok: false });
-    const p = lobby.players[socket.id];
-    if (!p) return callback?.({ ok: false });
+    if (!lobby) return callback?.({ ok: false });
+    const isSpectator = socket.data.isSpectator;
+    const spectator = isSpectator ? lobby.spectators?.[socket.id] : null;
+    const p = !isSpectator ? lobby.players[socket.id] : null;
+    if (!p && !spectator) return callback?.({ ok: false });
     const trimmed = (text || '').trim().slice(0, 200);
     if (!trimmed) return callback?.({ ok: false });
+    const senderName  = isSpectator ? spectator.name  : p.state.name;
+    const senderAvatar= isSpectator ? spectator.avatar : p.state.avatar;
+    const senderColor = isSpectator ? '#6a7090' : p.state.color;
     io.to(lobby.code).emit('lobby:chatMessage', {
-      name: p.state.name,
-      avatar: p.state.avatar,
-      color: p.state.color,
+      name: senderName,
+      avatar: senderAvatar,
+      color: senderColor,
       text: trimmed,
-      isMe: false, // server doesn't know who "me" is per-client; client handles this
+      isMe: false,
       socketId: socket.id,
+      isSpectator: !!isSpectator,
     });
     callback?.({ ok: true });
   });
@@ -652,6 +729,78 @@ io.on('connection', (socket) => {
     } else {
       callback?.({ ok: false, error: 'Invalid avatar.' });
     }
+  });
+
+  // ── Kick player (host only) ──────────────────────────────────────────────────
+  socket.on('lobby:kick', ({ targetSocketId, reason }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can kick.' });
+    if (targetSocketId === socket.id) return callback?.({ ok: false, error: 'Cannot kick yourself.' });
+
+    const kickReason = (reason || 'Kicked by host').trim().slice(0, 80);
+
+    // Check if target is a spectator first
+    if (lobby.spectators?.[targetSocketId]) {
+      const spec = lobby.spectators[targetSocketId];
+      delete lobby.spectators[targetSocketId];
+      io.to(targetSocketId).emit('lobby:kicked', { reason: kickReason });
+      // Clean up session
+      for (const [token, sess] of sessions.entries()) {
+        if (sess.socketId === targetSocketId) { sessions.delete(token); break; }
+      }
+      // Notify lobby
+      io.to(lobby.code).emit('lobby:chatMessage', {
+        name: 'System', avatar: '🚫', color: '#e84040',
+        text: `${spec.avatar} ${spec.name} was removed by the host.`,
+        socketId: 'system',
+      });
+      broadcastGameState(lobby);
+      return callback?.({ ok: true });
+    }
+
+    // Kick a player
+    const target = lobby.players[targetSocketId];
+    if (!target) return callback?.({ ok: false, error: 'Player not found.' });
+
+    io.to(targetSocketId).emit('lobby:kicked', { reason: kickReason });
+    delete lobby.players[targetSocketId];
+
+    // Clean up session
+    for (const [token, sess] of sessions.entries()) {
+      if (sess.socketId === targetSocketId) { sessions.delete(token); break; }
+    }
+
+    // Notify lobby
+    io.to(lobby.code).emit('lobby:chatMessage', {
+      name: 'System', avatar: '🚫', color: '#e84040',
+      text: `${target.state.avatar} ${target.state.name} was kicked by the host.`,
+      socketId: 'system',
+    });
+
+    if (lobby.status === 'waiting') broadcastLobbyState(lobby);
+    else broadcastGameState(lobby);
+    callback?.({ ok: true });
+  });
+
+  // ── Transfer host ─────────────────────────────────────────────────────────────
+  socket.on('lobby:transferHost', ({ targetSocketId }, callback) => {
+    const lobby = lobbies.get(socket.data.lobbyCode);
+    if (!lobby) return callback?.({ ok: false, error: 'No lobby.' });
+    if (lobby.hostId !== socket.id) return callback?.({ ok: false, error: 'Only host can transfer.' });
+    if (targetSocketId === socket.id) return callback?.({ ok: false, error: 'Already the host.' });
+    const target = lobby.players[targetSocketId];
+    if (!target) return callback?.({ ok: false, error: 'Player not found.' });
+
+    lobby.hostId = targetSocketId;
+    io.to(lobby.code).emit('lobby:newHost', { hostId: targetSocketId });
+    io.to(lobby.code).emit('lobby:chatMessage', {
+      name: 'System', avatar: '👑', color: '#f5c842',
+      text: `${target.state.avatar} ${target.state.name} is now the host.`,
+      socketId: 'system',
+    });
+    if (lobby.status === 'waiting') broadcastLobbyState(lobby);
+    callback?.({ ok: true });
   });
 
   socket.on('game:start', (_, callback) => {
@@ -696,6 +845,19 @@ io.on('connection', (socket) => {
     lobby.status = 'waiting';
     lobby.timer = null;
     lobby.timedEnd = null;
+
+    // Dismiss spectators — they can't join the next round's lobby directly
+    if (lobby.spectators) {
+      for (const [sid] of Object.entries(lobby.spectators)) {
+        io.to(sid).emit('spectator:gameDone', { message: 'The game ended. Return to the main menu to join again!' });
+        // Clean up sessions for spectators
+        for (const [token, sess] of sessions.entries()) {
+          if (sess.socketId === sid) { sessions.delete(token); break; }
+        }
+      }
+      lobby.spectators = {};
+    }
+
     let colorIdx = 0;
     for (const [sid, p] of Object.entries(lobby.players)) {
       const { name, avatar, color } = p.state;
@@ -1004,6 +1166,19 @@ io.on('connection', (socket) => {
     if (!code) return;
     const lobby = lobbies.get(code);
     if (!lobby) return;
+
+    // If spectator, remove immediately (no reconnect grace for spectators)
+    if (socket.data.isSpectator) {
+      if (lobby.spectators?.[socket.id]) {
+        const spec = lobby.spectators[socket.id];
+        delete lobby.spectators[socket.id];
+        for (const [token, sess] of sessions.entries()) {
+          if (sess.socketId === socket.id) { sessions.delete(token); break; }
+        }
+        if (lobby.status === 'playing') broadcastGameState(lobby);
+      }
+      return;
+    }
 
     // Give player 30s to reconnect before removing them
     const disconnectTimer = setTimeout(() => {
