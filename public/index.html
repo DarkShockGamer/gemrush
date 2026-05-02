@@ -588,7 +588,41 @@
   }
   .a11y-close:hover { border-color: var(--gold); }
 
-  /* ── SPECTATOR MODE ── */
+  /* ── RUSH HOUR PROGRESS BAR ── */
+  #rush-hour-bar-wrap {
+    display: none;
+    width: 100%; max-width: 480px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: .7rem 1rem; margin-bottom: .3rem;
+  }
+  #rush-hour-bar-wrap.active { display: block; }
+  .rush-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+  .rush-label-text { font-size: .72rem; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+  .rush-label-val { font-family: 'Share Tech Mono', monospace; font-size: .8rem; color: var(--gold); }
+  .rush-bar-track { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+  .rush-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--gold), #ff8c00); transition: width .5s ease; min-width: 2px; }
+  .rush-bar-fill.near-finish { background: linear-gradient(90deg, #ff4444, #ff8c00); animation: rushPulse .6s ease-in-out infinite alternate; }
+  @keyframes rushPulse { from { filter: brightness(1); } to { filter: brightness(1.4); } }
+
+  /* ── LAST MINER LIVES HUD ── */
+  #lives-hud {
+    display: none;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: .5rem .9rem;
+    align-items: center; gap: .5rem;
+    width: 100%; max-width: 480px;
+  }
+  #lives-hud.active { display: flex; }
+  .lives-label { font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .lives-hearts { display: flex; gap: .2rem; font-size: 1.2rem; flex-wrap: wrap; }
+  .life-heart { transition: transform .2s; }
+  .life-heart.lost { filter: grayscale(1); opacity: .35; }
+  .life-heart.lost.shake { animation: lostShake .4s ease; }
+  @keyframes lostShake { 0%,100%{transform:none} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  .lives-eliminated-badge { font-family: 'Bebas Neue', sans-serif; font-size: .85rem; letter-spacing: .1em; color: var(--ruby); border: 1px solid var(--ruby); border-radius: 4px; padding: .15rem .5rem; animation: elimPulse 1.5s ease-in-out infinite; }
+  @keyframes elimPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+
   #spectator-screen { flex-direction:column; align-items:center; justify-content:flex-start; min-height:100vh; background:var(--bg); }
   .spectator-topbar { width:100%; background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
   .spectator-badge { background:rgba(160,96,240,.15); border:1px solid #9040f0; color:#c080ff; font-family:'Bebas Neue',sans-serif; font-size:.85rem; letter-spacing:.12em; padding:.2rem .7rem; border-radius:5px; }
@@ -816,6 +850,32 @@
           <div class="mode-name">Team Dig</div>
           <div class="mode-desc">2v2 — team scores combine. Most gold wins!</div>
         </div>
+        <div class="mode-card" id="mode-rushHour" onclick="selectMode('rushHour')">
+          <div class="mode-icon">🏁</div>
+          <div class="mode-name">Rush Hour</div>
+          <div class="mode-desc">First to hit the profit target wins! No timer — just pure race tension.</div>
+          <div class="mode-extra" id="rushhour-extra">
+            <select id="rush-target" onclick="event.stopPropagation()" onchange="event.stopPropagation()">
+              <option value="5000">$5,000</option>
+              <option value="10000" selected>$10,000</option>
+              <option value="25000">$25,000</option>
+              <option value="50000">$50,000</option>
+              <option value="100000">$100,000</option>
+            </select>
+          </div>
+        </div>
+        <div class="mode-card" id="mode-lastMiner" onclick="selectMode('lastMiner')">
+          <div class="mode-icon">💀</div>
+          <div class="mode-name">Last Miner</div>
+          <div class="mode-desc">Sabotage Royale! Lethal sabotages cost lives. Last miner standing wins.</div>
+          <div class="mode-extra" id="lastminer-extra">
+            <select id="lastminer-lives" onclick="event.stopPropagation()" onchange="event.stopPropagation()">
+              <option value="2">2 lives</option>
+              <option value="3" selected>3 lives</option>
+              <option value="5">5 lives</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
     <button class="btn btn-gold" id="btn-create" onclick="createLobby()" disabled>⚒ Create Lobby</button>
@@ -892,6 +952,23 @@
         <div class="mode-card" id="lmode-teams" onclick="selectLobbyMode('teams')">
           <div class="mode-icon">🤝</div><div class="mode-name">Team Dig</div>
           <div class="mode-desc">2v2 team scores combine.</div>
+        </div>
+        <div class="mode-card" id="lmode-rushHour" onclick="selectLobbyMode('rushHour')">
+          <div class="mode-icon">🏁</div><div class="mode-name">Rush Hour</div>
+          <div class="mode-desc">First to hit the profit target wins!</div>
+          <div class="mode-extra"><select id="lmode-rush-target" onclick="event.stopPropagation()" onchange="event.stopPropagation()">
+            <option value="5000">$5,000</option><option value="10000" selected>$10,000</option>
+            <option value="25000">$25,000</option><option value="50000">$50,000</option>
+            <option value="100000">$100,000</option>
+          </select></div>
+        </div>
+        <div class="mode-card" id="lmode-lastMiner" onclick="selectLobbyMode('lastMiner')">
+          <div class="mode-icon">💀</div><div class="mode-name">Last Miner</div>
+          <div class="mode-desc">Sabotage Royale — last alive wins!</div>
+          <div class="mode-extra"><select id="lmode-lastminer-lives" onclick="event.stopPropagation()" onchange="event.stopPropagation()">
+            <option value="2">2 lives</option><option value="3" selected>3 lives</option>
+            <option value="5">5 lives</option>
+          </select></div>
         </div>
       </div>
       <div style="display:flex;gap:.5rem;">
@@ -989,6 +1066,21 @@
         <div class="stat-box"><span class="stat-val" id="stat-gems">0</span><span class="stat-lbl">💎 Gems Mined</span></div>
         <div class="stat-box"><span class="stat-val" id="stat-profit">$0</span><span class="stat-lbl">💰 Cash</span></div>
         <div class="stat-box"><span class="stat-val" id="stat-clicks">0</span><span class="stat-lbl">⚒ Clicks</span></div>
+      </div>
+
+      <!-- Rush Hour Progress Bar -->
+      <div id="rush-hour-bar-wrap">
+        <div class="rush-label">
+          <span class="rush-label-text">🏁 Race to the finish</span>
+          <span class="rush-label-val" id="rush-label-val">$0 / $0</span>
+        </div>
+        <div class="rush-bar-track"><div class="rush-bar-fill" id="rush-bar-fill" style="width:0%"></div></div>
+      </div>
+
+      <!-- Last Miner Lives HUD -->
+      <div id="lives-hud">
+        <span class="lives-label">❤️ Lives</span>
+        <div class="lives-hearts" id="lives-hearts"></div>
       </div>
       <div class="mine-btn-wrap">
         <!-- Orbit zone holds the button + orbiting miners -->
@@ -1220,11 +1312,13 @@ let allPlayers = [];
 let myLastRank = null; // tracks position for change announcements
 let currentTab = 'upgrades';
 let sessionToken = null;
-let selectedMode = 'unlimited'; // 'unlimited' | 'timed' | 'teams'
+let selectedMode = 'unlimited'; // 'unlimited' | 'timed' | 'teams' | 'rushHour' | 'lastMiner'
 let selectedLobbyMode = 'unlimited'; // mode selector inside lobby change-mode panel
 let lobbyIsPublic = false;
 let endCountdownInterval = null;
 let gameMode = 'unlimited';
+let rushGoal = null; // Rush Hour target profit
+let lastMinerMaxLives = null; // Last Miner lives per player
 let gameTimerInterval = null;
 let sabCooldownInterval = null; // ticks the sabotage cooldown display
 let frozenOverlayEl = null;
@@ -1327,7 +1421,7 @@ function refreshServerList() {
       return;
     }
     lobbies.forEach(l => {
-      const modeLabel = l.gameMode === 'timed' ? `⏱ Timed (${Math.round(l.gameDuration/60)}m)` : l.gameMode === 'teams' ? '🤝 Teams' : '♾️ Unlimited';
+      const modeLabel = l.gameMode === 'timed' ? `⏱ Timed (${Math.round(l.gameDuration/60)}m)` : l.gameMode === 'teams' ? '🤝 Teams' : l.gameMode === 'rushHour' ? '🏁 Rush Hour' : l.gameMode === 'lastMiner' ? '💀 Last Miner' : '♾️ Unlimited';
       const row = document.createElement('div');
       row.className = 'server-row';
       if (l.inProgress) {
@@ -1382,9 +1476,18 @@ function applyLobbyMode() {
   const duration = selectedLobbyMode === 'timed'
     ? parseInt(document.getElementById('lmode-duration').value)
     : null;
-  socket.emit('lobby:changeMode', { mode: selectedLobbyMode, duration }, (res) => {
+  const rushTarget = selectedLobbyMode === 'rushHour'
+    ? parseInt(document.getElementById('lmode-rush-target').value)
+    : null;
+  const lastMinerLives = selectedLobbyMode === 'lastMiner'
+    ? parseInt(document.getElementById('lmode-lastminer-lives').value)
+    : null;
+  socket.emit('lobby:changeMode', { mode: selectedLobbyMode, duration, rushTarget, lastMinerLives }, (res) => {
     if (!res || !res.ok) { showToast('❌', 'Error', res?.error || 'Failed'); return; }
     gameMode = res.mode;
+    rushGoal = res.rushGoal || null;
+    lastMinerMaxLives = res.maxLives || null;
+    updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives);
     document.getElementById('change-mode-panel').style.display = 'none';
     showToast('🎮', 'Mode Changed', `Now playing: ${res.mode}`);
   });
@@ -1734,7 +1837,7 @@ function initSocket() {
         gameMode = res.mode || 'unlimited';
         document.getElementById('lobby-code-display').textContent = lobbyCode;
         document.getElementById('lobby-name-input').value = selfState?.name || storedName || '';
-        updateLobbyModeBadge(res.mode, res.duration);
+        updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives);
         if (res.status === 'playing') {
           showScreen('game-screen');
           document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
@@ -1873,7 +1976,7 @@ function initSocket() {
     haptic(count === 1 ? [30,20,40] : 40);
   });
 
-  socket.on('game:started', ({ mode, duration } = {}) => {
+  socket.on('game:started', ({ mode, duration, rushGoal: rGoal, maxLives: mLives } = {}) => {
     // Hide lobby chat
     const chatWrap = document.getElementById('lobby-chat-wrap');
     if (chatWrap) chatWrap.style.display = 'none';
@@ -1882,6 +1985,8 @@ function initSocket() {
     const overlay = document.getElementById('countdown-overlay');
     if (overlay) overlay.classList.remove('active');
     gameMode = mode || gameMode;
+    if (rGoal) rushGoal = rGoal;
+    if (mLives) lastMinerMaxLives = mLives;
     myLastRank = null; // reset rank tracking for new game
     showScreen('game-screen');
     document.getElementById('topbar-code').textContent = 'Lobby: ' + lobbyCode;
@@ -1893,6 +1998,8 @@ function initSocket() {
     initIngameChatPanel();
     startSabCooldownTick();
     if (gameMode === 'timed' && duration) startClientTimer(duration);
+    if (gameMode === 'rushHour') initRushHourBar(rushGoal);
+    if (gameMode === 'lastMiner') initLivesHUD(lastMinerMaxLives);
   });
 
   socket.on('game:state', ({ players, spectatorCount }) => {
@@ -1963,6 +2070,7 @@ function initSocket() {
     clearOrbitMiners();
     stopSabCooldownTick();
     removeFrozenOverlay();
+    resetGameModeHUD();
     showEndScreen(results, mode, awards);
     // Host gets the return button; non-hosts see waiting message
     const returnBtn = document.getElementById('return-lobby-btn');
@@ -1971,7 +2079,33 @@ function initSocket() {
     if (waitMsg)   waitMsg.style.display   = isHost ? 'none'  : 'block';
   });
 
-  socket.on('sabotage:hit', (data) => {
+  socket.on('lastMiner:lifeLost', ({ livesLeft, attackerName, attackerAvatar, sabotageId }) => {
+    showToast('💔', 'Life Lost!', `${attackerAvatar} ${attackerName} hit you with ${sabotageId.replace(/_/g,' ')}! ${livesLeft} live${livesLeft !== 1 ? 's' : ''} left.`);
+    updateLivesHUD(livesLeft, lastMinerMaxLives);
+    haptic([60, 30, 60, 30, 80]);
+  });
+
+  socket.on('lastMiner:lifeStolen', ({ targetName, targetAvatar, livesLeft }) => {
+    showToast('⚔️', 'Life Stolen!', `${targetAvatar} ${targetName} is down to ${livesLeft} live${livesLeft !== 1 ? 's' : ''}!`);
+  });
+
+  socket.on('lastMiner:eliminated', ({ attackerName, attackerAvatar }) => {
+    showToast('💀', 'You\'re Out!', `${attackerAvatar} ${attackerName} landed the killing blow. Now spectating...`);
+    updateLivesHUD(0, lastMinerMaxLives);
+    // Disable mine button
+    const mineBtn = document.getElementById('mine-btn');
+    if (mineBtn) { mineBtn.disabled = true; mineBtn.style.opacity = '0.3'; mineBtn.title = 'You are eliminated!'; }
+    // Show eliminated overlay text on button
+    const pickIcon = mineBtn?.querySelector('.pick-icon');
+    if (pickIcon) pickIcon.textContent = '💀';
+  });
+
+  socket.on('lastMiner:playerOut', ({ name, avatar }) => {
+    showToast('💀', 'Player Eliminated!', `${avatar} ${name} has been knocked out!`);
+    if (currentTab === 'players') renderPlayers();
+  });
+
+
     showSabotageHit(data);
     // The server also emits player:self which will update selfState
   });
@@ -2078,7 +2212,7 @@ function initSocket() {
         document.getElementById('host-controls').style.display = 'none';
         document.getElementById('leave-lobby-btn').style.display = 'block';
         document.getElementById('end-lobby-btn').style.display = 'none';
-        updateLobbyModeBadge(res.mode, res.duration);
+        updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives);
         document.getElementById('lobby-chat-wrap').style.display = 'block';
         clearChat();
         addChatMessage({ system: true, text: 'You joined the lobby as a player! 🎉' });
@@ -2108,12 +2242,16 @@ function getPlayerName() {
 function createLobby() {
   const mode = selectedMode;
   const duration = mode === 'timed' ? parseInt(document.getElementById('timed-duration').value) : null;
-  socket.emit('lobby:create', { playerName: getPlayerName(), mode, duration, isPublic: false }, (res) => {
+  const rushTarget = mode === 'rushHour' ? parseInt(document.getElementById('rush-target').value) : null;
+  const lastMinerLives = mode === 'lastMiner' ? parseInt(document.getElementById('lastminer-lives').value) : null;
+  socket.emit('lobby:create', { playerName: getPlayerName(), mode, duration, isPublic: false, rushTarget, lastMinerLives }, (res) => {
     if (!res.ok) { showToast('❌','Error', res.error); return; }
     lobbyCode = res.code;
     isHost = true;
     selfState = res.self;
     gameMode = res.mode || 'unlimited';
+    rushGoal = res.rushGoal || null;
+    lastMinerMaxLives = res.maxLives || null;
     lobbyIsPublic = false;
     sessionToken = res.token;
     saveSession(res.token, res.code, true, selfState.name);
@@ -2125,7 +2263,7 @@ function createLobby() {
     document.getElementById('end-lobby-btn').style.display = 'block';
     const toggleBtn = document.getElementById('toggle-public-btn');
     if (toggleBtn) toggleBtn.textContent = '🌐 Make Public';
-    updateLobbyModeBadge(res.mode, res.duration);
+    updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives);
     document.getElementById('lobby-chat-wrap').style.display = 'block';
     clearChat();
     addChatMessage({ system: true, text: 'Welcome to the lobby! Say hello 👋' });
@@ -2153,7 +2291,7 @@ function joinLobby() {
       gameMode = res.mode || 'unlimited';
       // Show spectator screen
       document.getElementById('spectator-code').textContent = 'Lobby: ' + res.code;
-      const modeLabels = { timed: `⏱ Timed (${Math.round((res.duration||300)/60)}m)`, teams: '🤝 Teams', unlimited: '♾️ Unlimited' };
+      const modeLabels = { timed: `⏱ Timed (${Math.round((res.duration||300)/60)}m)`, teams: '🤝 Teams', unlimited: '♾️ Unlimited', rushHour: `🏁 Rush Hour`, lastMiner: '💀 Last Miner' };
       const specModeEl = document.getElementById('spec-mode-label');
       if (specModeEl) specModeEl.textContent = modeLabels[gameMode] || gameMode;
       if (gameMode === 'timed' && res.duration) {
@@ -2171,6 +2309,8 @@ function joinLobby() {
     isHost = false;
     selfState = res.self;
     gameMode = res.mode || 'unlimited';
+    rushGoal = res.rushGoal || null;
+    lastMinerMaxLives = res.maxLives || null;
     sessionToken = res.token;
     saveSession(res.token, res.code, false, selfState.name);
     document.getElementById('lobby-code-display').textContent = lobbyCode;
@@ -2179,15 +2319,7 @@ function joinLobby() {
     document.getElementById('host-controls').style.display = 'none';
     document.getElementById('leave-lobby-btn').style.display = 'block';
     document.getElementById('end-lobby-btn').style.display = 'none';
-    updateLobbyModeBadge(res.mode, res.duration);
-    document.getElementById('lobby-chat-wrap').style.display = 'block';
-    clearChat();
-    addChatMessage({ system: true, text: 'Welcome to the lobby! Say hello 👋' });
-    showScreen('lobby-screen');
-    renderAvatarPicker();
-  });
-}
-function updateLobbyName() {
+    updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives); {
   const newName = document.getElementById('lobby-name-input').value.trim();
   if (!newName) return;
   socket.emit('lobby:rename', { name: newName }, (res) => {
@@ -2257,7 +2389,7 @@ function copyCode() {
   navigator.clipboard.writeText(lobbyCode).then(() => showToast('📋','Copied!','Share this code with friends: ' + lobbyCode));
 }
 
-function updateLobbyModeBadge(mode, duration) {
+function updateLobbyModeBadge(mode, duration, rGoal, mLives) {
   const el = document.getElementById('lobby-mode-display');
   if (!el) return;
   if (mode === 'timed') {
@@ -2265,6 +2397,10 @@ function updateLobbyModeBadge(mode, duration) {
     el.innerHTML = `<div class="lobby-mode-badge">⏱️ Timed Rush — ${mins} min</div>`;
   } else if (mode === 'teams') {
     el.innerHTML = `<div class="lobby-mode-badge">🤝 Team Dig — 2v2</div>`;
+  } else if (mode === 'rushHour') {
+    el.innerHTML = `<div class="lobby-mode-badge">🏁 Rush Hour — First to $${(rGoal||10000).toLocaleString()}</div>`;
+  } else if (mode === 'lastMiner') {
+    el.innerHTML = `<div class="lobby-mode-badge">💀 Last Miner Standing — ${mLives||3} lives</div>`;
   } else {
     el.innerHTML = `<div class="lobby-mode-badge">♾️ Unlimited Mode</div>`;
   }
@@ -2939,6 +3075,67 @@ function buyUpgrade(upgradeId) {
   });
 }
 
+// ─── Rush Hour ─────────────────────────────────────────────────────────────────
+function initRushHourBar(goal) {
+  const wrap = document.getElementById('rush-hour-bar-wrap');
+  if (wrap) wrap.classList.add('active');
+  const timerEl = document.getElementById('game-timer');
+  if (timerEl) timerEl.style.display = 'none'; // no clock in Rush Hour
+  updateRushHourBar(0, goal || rushGoal);
+}
+
+function updateRushHourBar(earned, goal) {
+  const g = goal || rushGoal;
+  if (!g) return;
+  const wrap = document.getElementById('rush-hour-bar-wrap');
+  if (!wrap || !wrap.classList.contains('active')) return;
+  const pct = Math.min(100, Math.round((earned / g) * 100));
+  const fill = document.getElementById('rush-bar-fill');
+  const label = document.getElementById('rush-label-val');
+  if (fill) {
+    fill.style.width = pct + '%';
+    fill.classList.toggle('near-finish', pct >= 75);
+  }
+  if (label) label.textContent = `$${Math.min(earned, g).toLocaleString()} / $${g.toLocaleString()}`;
+}
+
+// ─── Last Miner Lives HUD ──────────────────────────────────────────────────────
+function initLivesHUD(maxLives) {
+  const hud = document.getElementById('lives-hud');
+  if (hud) hud.classList.add('active');
+  updateLivesHUD(maxLives || lastMinerMaxLives, maxLives || lastMinerMaxLives);
+}
+
+function updateLivesHUD(livesLeft, maxLives) {
+  const container = document.getElementById('lives-hearts');
+  if (!container) return;
+  const max = maxLives || lastMinerMaxLives || 3;
+  container.innerHTML = '';
+  if (livesLeft <= 0) {
+    // Show eliminated badge
+    const badge = document.createElement('span');
+    badge.className = 'lives-eliminated-badge';
+    badge.textContent = '💀 ELIMINATED';
+    container.appendChild(badge);
+    return;
+  }
+  for (let i = 0; i < max; i++) {
+    const heart = document.createElement('span');
+    heart.className = 'life-heart' + (i >= livesLeft ? ' lost' : '');
+    heart.textContent = '❤️';
+    container.appendChild(heart);
+  }
+}
+
+function resetGameModeHUD() {
+  // Hide Rush Hour bar
+  const wrap = document.getElementById('rush-hour-bar-wrap');
+  if (wrap) wrap.classList.remove('active');
+  // Hide Lives HUD
+  const hud = document.getElementById('lives-hud');
+  if (hud) hud.classList.remove('active');
+}
+
 // ─── Stats & UI ────────────────────────────────────────────────────────────────
 function updateStats() {
   if (!selfState) return;
@@ -2951,6 +3148,14 @@ function updateStats() {
   document.getElementById('mine-power-display').textContent = `+${gpc}/click (${chance}%)${auto}`;
   renderInventory();
   updatePrestigeButton();
+  // Rush Hour: update progress bar with player's own totalEarned
+  if (gameMode === 'rushHour' && rushGoal) {
+    updateRushHourBar(selfState.totalEarned, rushGoal);
+  }
+  // Last Miner: update lives HUD
+  if (gameMode === 'lastMiner' && selfState.lives !== undefined) {
+    updateLivesHUD(selfState.lives, selfState.maxLives || lastMinerMaxLives);
+  }
 }
 
 function updatePrestigeButton() {
@@ -3129,6 +3334,7 @@ function renderPlayers() {
         <div class="pr-stat">🖱 ${(p.totalClicks||0).toLocaleString()}</div>
         ${p.autoMine>0?`<div class="pr-stat">🤖 ${p.autoMine}/s</div>`:''}
         ${p.unsoldValue>0?`<div class="pr-stat">💼 $${p.unsoldValue.toLocaleString()} unsold</div>`:''}
+        ${gameMode === 'lastMiner' && p.lives !== undefined ? `<div class="pr-stat" style="color:${p.eliminated?'var(--ruby)':'var(--emerald)'};">${p.eliminated ? '💀 OUT' : '❤️ '.repeat(p.lives || 0) + ` ${p.lives}/${p.maxLives||lastMinerMaxLives} lives`}</div>` : ''}
         <div class="pr-stat">🏅 #${rank+1}</div>
       </div>`;
     container.appendChild(div);
@@ -3309,6 +3515,7 @@ function goTitle() {
   stopSabCooldownTick();
   removeFrozenOverlay();
   removeJamBanner();
+  resetGameModeHUD();
   clearSession();
   clearOrbitMiners();
   showScreen('title-screen');
@@ -3454,8 +3661,19 @@ function renderSabotage() {
     return;
   }
 
+  // If player is eliminated in Last Miner, show note
+  if (gameMode === 'lastMiner' && selfState?.eliminated) {
+    const msg = document.createElement('div');
+    msg.className = 'sab-no-targets';
+    msg.style.color = 'var(--ruby)';
+    msg.textContent = '💀 You have been eliminated. Spectating...';
+    container.appendChild(msg);
+    return;
+  }
+
   const cash = selfState?.profit || 0;
   const now = Date.now();
+  const lethalSabs = ['freeze', 'cursed_vein', 'pickaxe_jam']; // cost a life in Last Miner
 
   SABOTAGES.forEach(sab => {
     const timesUsed = selfState?.sabotageUses?.[sab.id] || 0;
@@ -3464,12 +3682,17 @@ function renderSabotage() {
     const onCooldown = now < cooldownUntil;
     const secsLeft = onCooldown ? Math.ceil((cooldownUntil - now) / 1000) : 0;
     const canAfford = cash >= cost;
+    const isLethal = gameMode === 'lastMiner' && lethalSabs.includes(sab.id);
+    const lethalBadge = isLethal ? `<span style="font-size:.6rem;font-family:'Share Tech Mono',monospace;background:rgba(232,64,64,.15);color:var(--ruby);border:1px solid var(--ruby);border-radius:3px;padding:.1rem .35rem;margin-left:.4rem;">💀 COSTS A LIFE</span>` : '';
+
+    const liveTargets = others.filter(p => !(gameMode === 'lastMiner' && p.eliminated));
+    const elimTargets = others.filter(p => gameMode === 'lastMiner' && p.eliminated);
 
     const card = document.createElement('div');
     card.className = 'sab-card';
     card.innerHTML = `
       <div class="sab-card-header">
-        <div class="sab-card-name">${sab.emoji} ${sab.name}</div>
+        <div class="sab-card-name">${sab.emoji} ${sab.name}${lethalBadge}</div>
         <div class="sab-card-cost">$${cost.toLocaleString()}</div>
       </div>
       <div class="sab-card-desc">${sab.desc}</div>
@@ -3479,11 +3702,15 @@ function renderSabotage() {
           ${onCooldown ? `<span class="sab-cooldown" id="sab-cd-${sab.id}"> · ⏳ ${secsLeft}s</span>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:.3rem">
-          ${others.map(p => `
+          ${liveTargets.map(p => `
             <button class="sab-btn" id="sab-${sab.id}-${p.socketId}"
               onclick="useSabotage('${sab.id}','${p.socketId}')"
               ${onCooldown || !canAfford ? 'disabled' : ''}>
-              ${p.avatar} ${p.name}
+              ${p.avatar} ${p.name}${gameMode === 'lastMiner' && p.lives !== undefined ? ` ❤️${p.lives}` : ''}
+            </button>`).join('')}
+          ${elimTargets.map(p => `
+            <button class="sab-btn" disabled style="opacity:.3;text-decoration:line-through;">
+              ${p.avatar} ${p.name} 💀
             </button>`).join('')}
         </div>
       </div>`;
@@ -3722,7 +3949,10 @@ function fireLobbyNotif(lobby) {
   setLastNotifTime();
   const modeLabel = lobby.gameMode === 'timed'
     ? `⏱ Timed (${Math.round(lobby.gameDuration / 60)}m)`
-    : lobby.gameMode === 'teams' ? '🤝 Teams' : '♾️ Unlimited';
+    : lobby.gameMode === 'teams' ? '🤝 Teams'
+    : lobby.gameMode === 'rushHour' ? `🏁 Rush Hour ($${(lobby.gameDuration||10000).toLocaleString()})`
+    : lobby.gameMode === 'lastMiner' ? '💀 Last Miner'
+    : '♾️ Unlimited';
   const n = new Notification('⛏ GEM RUSH — Lobby Open!', {
     body: `${lobby.hostName} is hosting a ${modeLabel} game · ${lobby.playerCount}/${lobby.maxPlayers} players · Code: ${lobby.code}`,
     icon: '/favicon.svg',
