@@ -846,10 +846,13 @@ io.on('connection', (socket) => {
     lobby.timer = null;
     lobby.timedEnd = null;
 
-    // Dismiss spectators — they can't join the next round's lobby directly
+    // Dismiss spectators — notify them with the lobby code so they can rejoin as players
     if (lobby.spectators) {
       for (const [sid] of Object.entries(lobby.spectators)) {
-        io.to(sid).emit('spectator:gameDone', { message: 'The game ended. Return to the main menu to join again!' });
+        io.to(sid).emit('spectator:gameDone', {
+          message: 'The game ended. Returning to lobby...',
+          lobbyCode: lobby.code,
+        });
         // Clean up sessions for spectators
         for (const [token, sess] of sessions.entries()) {
           if (sess.socketId === sid) { sessions.delete(token); break; }
