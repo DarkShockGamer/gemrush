@@ -2319,7 +2319,15 @@ function joinLobby() {
     document.getElementById('host-controls').style.display = 'none';
     document.getElementById('leave-lobby-btn').style.display = 'block';
     document.getElementById('end-lobby-btn').style.display = 'none';
-    updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives); {
+    updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives);
+    document.getElementById('lobby-chat-wrap').style.display = 'block';
+    clearChat();
+    addChatMessage({ system: true, text: 'Welcome to the lobby! Say hello 👋' });
+    showScreen('lobby-screen');
+    renderAvatarPicker();
+  });
+}
+function updateLobbyName() {
   const newName = document.getElementById('lobby-name-input').value.trim();
   if (!newName) return;
   socket.emit('lobby:rename', { name: newName }, (res) => {
