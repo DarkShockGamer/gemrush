@@ -2105,7 +2105,7 @@ function initSocket() {
     if (currentTab === 'players') renderPlayers();
   });
 
-
+  socket.on('sabotage:hit', (data) => {
     showSabotageHit(data);
     // The server also emits player:self which will update selfState
   });
