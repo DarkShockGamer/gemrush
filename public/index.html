@@ -2047,15 +2047,51 @@ function initSocket() {
     showToast('🚫', 'Removed', reason || 'You were removed from the lobby.');
   });
 
-  socket.on('spectator:gameDone', ({ message }) => {
+  socket.on('spectator:gameDone', ({ message, lobbyCode: returnCode }) => {
     isSpectator = false;
-    lobbyCode = null;
     sessionToken = null;
     clearSession();
     clearSpectatorChat();
-    showScreen('title-screen');
-    showHomeCard();
-    showToast('👁', 'Game Over', message || 'The game ended.');
+
+    // If the server provided the lobby code, auto-rejoin as a fresh player
+    if (returnCode) {
+      const playerName = spectatorName || getPlayerName();
+      socket.emit('lobby:join', { playerName, code: returnCode }, (res) => {
+        if (!res || !res.ok || res.isSpectator) {
+          // Lobby full or unavailable — fall back to title
+          lobbyCode = null;
+          showScreen('title-screen');
+          showHomeCard();
+          showToast('👁', 'Game Over', res?.error || 'Could not rejoin lobby.');
+          return;
+        }
+        // Joined as a regular player
+        lobbyCode = res.code;
+        isHost = false;
+        selfState = res.self;
+        gameMode = res.mode || 'unlimited';
+        sessionToken = res.token;
+        saveSession(res.token, res.code, false, selfState.name);
+        document.getElementById('lobby-code-display').textContent = lobbyCode;
+        document.getElementById('lobby-name-input').value = selfState.name || playerName;
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('host-controls').style.display = 'none';
+        document.getElementById('leave-lobby-btn').style.display = 'block';
+        document.getElementById('end-lobby-btn').style.display = 'none';
+        updateLobbyModeBadge(res.mode, res.duration);
+        document.getElementById('lobby-chat-wrap').style.display = 'block';
+        clearChat();
+        addChatMessage({ system: true, text: 'You joined the lobby as a player! 🎉' });
+        showScreen('lobby-screen');
+        renderAvatarPicker();
+        showToast('🎉', 'Joined as Player!', 'You\'re now in the lobby as ' + selfState.name);
+      });
+    } else {
+      lobbyCode = null;
+      showScreen('title-screen');
+      showHomeCard();
+      showToast('👁', 'Game Over', message || 'The game ended.');
+    }
   });
 }
 
@@ -2466,8 +2502,8 @@ function showScreen(id) {
   _origShowScreen(id);
   const a11yBtn = document.getElementById('a11y-btn');
   if (a11yBtn) {
-    // Show on title and game screens, not in lobby or end
-    a11yBtn.style.display = (id === 'title-screen' || id === 'game-screen') ? 'block' : 'none';
+    // Show only on title screen
+    a11yBtn.style.display = (id === 'title-screen') ? 'block' : 'none';
   }
 }
 
