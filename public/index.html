@@ -588,7 +588,57 @@
   }
   .a11y-close:hover { border-color: var(--gold); }
 
-  /* ── LOBBY CHAT ── */
+  /* ── SPECTATOR MODE ── */
+  #spectator-screen { flex-direction:column; align-items:center; justify-content:flex-start; min-height:100vh; background:var(--bg); }
+  .spectator-topbar { width:100%; background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .spectator-badge { background:rgba(160,96,240,.15); border:1px solid #9040f0; color:#c080ff; font-family:'Bebas Neue',sans-serif; font-size:.85rem; letter-spacing:.12em; padding:.2rem .7rem; border-radius:5px; }
+  .spectator-content { width:100%; max-width:700px; padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+  .spectator-leaderboard { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .spectator-lb-header { background:var(--surface2); padding:.7rem 1rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:.12em; color:var(--gold); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .spectator-lb-row { display:flex; align-items:center; gap:.8rem; padding:.75rem 1rem; border-bottom:1px solid var(--border); transition:background .15s; }
+  .spectator-lb-row:last-child { border-bottom:none; }
+  .spectator-lb-row:nth-child(2) { background:rgba(245,200,66,.04); }
+  .spectator-lb-rank { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; width:2rem; text-align:center; color:var(--muted); }
+  .spectator-lb-name { flex:1; font-weight:700; font-size:.95rem; }
+  .spectator-lb-score { font-family:'Share Tech Mono',monospace; font-size:.9rem; color:var(--emerald); }
+  .spectator-lb-sub { font-size:.7rem; color:var(--muted); }
+  .spectator-lb-bar-wrap { width:100%; height:3px; background:var(--border); border-radius:2px; margin-top:.3rem; }
+  .spectator-lb-bar { height:3px; border-radius:2px; background:var(--gold); transition:width .5s ease; }
+  .spectator-info-row { display:flex; gap:.8rem; }
+  .spectator-stat { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.7rem 1rem; text-align:center; }
+  .spectator-stat-val { font-family:'Share Tech Mono',monospace; font-size:1.2rem; color:var(--gold); display:block; }
+  .spectator-stat-lbl { font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .spectator-exit-btn { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:.1em; background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:.5rem 1.2rem; cursor:pointer; transition:all .15s; }
+  .spectator-exit-btn:hover { border-color:var(--ruby); color:var(--ruby); }
+
+  /* ── IN-GAME CHAT ── */
+  .ingame-chat-panel { display:flex; flex-direction:column; height:100%; }
+  .ingame-chat-msgs { flex:1; overflow-y:auto; padding:.6rem .8rem; display:flex; flex-direction:column; gap:.3rem; }
+  .ingame-chat-msgs::-webkit-scrollbar { width:3px; }
+  .ingame-chat-msgs::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  .ingame-chat-input-row { display:flex; gap:.4rem; padding:.5rem .7rem; border-top:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
+  .ingame-chat-input-row input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.4rem .7rem; color:var(--text); font-family:'Barlow Condensed',sans-serif; font-size:.9rem; outline:none; transition:border-color .2s; font-size:16px; }
+  .ingame-chat-input-row input:focus { border-color:var(--gold); }
+  .ingame-chat-input-row button { background:var(--gold); color:#1a1200; border:none; border-radius:6px; padding:.4rem .8rem; font-family:'Bebas Neue',sans-serif; font-size:.9rem; letter-spacing:.08em; cursor:pointer; transition:filter .15s; white-space:nowrap; }
+  .ingame-chat-input-row button:hover { filter:brightness(1.1); }
+  .ingame-chat-unread { position:absolute; top:2px; right:2px; background:var(--ruby); color:#fff; font-size:.6rem; font-family:'Share Tech Mono',monospace; padding:.1rem .35rem; border-radius:99px; display:none; }
+  .ingame-chat-unread.visible { display:inline-block; }
+  .panel-tab-wrap { position:relative; }
+
+  /* ── HOST MANAGEMENT ── */
+  .player-slot-actions { display:flex; gap:.4rem; margin-top:.4rem; }
+  .slot-action-btn { font-family:'Bebas Neue',sans-serif; font-size:.7rem; letter-spacing:.08em; border-radius:4px; padding:.15rem .5rem; cursor:pointer; border:1px solid; transition:all .12s; white-space:nowrap; }
+  .slot-kick-btn { background:rgba(232,64,64,.1); border-color:var(--ruby); color:var(--ruby); }
+  .slot-kick-btn:hover { background:var(--ruby); color:#fff; }
+  .slot-host-btn { background:rgba(245,200,66,.08); border-color:var(--gold); color:var(--gold); }
+  .slot-host-btn:hover { background:rgba(245,200,66,.2); }
+  .spectator-list-section { margin-top:.8rem; }
+  .spectator-list-title { font-size:.7rem; letter-spacing:.15em; text-transform:uppercase; color:var(--muted); margin-bottom:.4rem; }
+  .spectator-chip { display:inline-flex; align-items:center; gap:.3rem; background:rgba(144,64,240,.1); border:1px solid rgba(144,64,240,.3); border-radius:6px; padding:.2rem .6rem; font-size:.8rem; margin:.2rem .2rem 0 0; }
+  .spectator-chip-kick { background:none; border:none; color:var(--ruby); cursor:pointer; font-size:.75rem; padding:0 .2rem; line-height:1; }
+  .spectator-chip-kick:hover { color:#ff6060; }
+
+
   .lobby-chat-wrap {
     position: fixed;
     bottom: 0;
@@ -875,12 +925,52 @@
     </div>
   </div>
 
-<!-- GAME -->
-<div id="game-screen" class="screen">
+<!-- SPECTATOR SCREEN -->
+<div id="spectator-screen" class="screen">
+  <div class="spectator-topbar">
+    <div style="display:flex;align-items:center;gap:.8rem;">
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);">⛏ GEM RUSH</span>
+      <span class="spectator-badge">👁 SPECTATING</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:.7rem;">
+      <span id="spectator-timer" style="font-family:'Share Tech Mono',monospace;font-size:.9rem;color:var(--muted);display:none;"></span>
+      <span id="spectator-code" style="font-size:.8rem;color:var(--muted);font-family:'Share Tech Mono',monospace;"></span>
+    </div>
+    <button class="spectator-exit-btn" onclick="exitSpectator()">🚪 Exit</button>
+  </div>
+  <div class="spectator-content">
+    <div class="spectator-info-row">
+      <div class="spectator-stat"><span class="spectator-stat-val" id="spec-player-count">0</span><span class="spectator-stat-lbl">Players</span></div>
+      <div class="spectator-stat"><span class="spectator-stat-val" id="spec-spectator-count">1</span><span class="spectator-stat-lbl">👁 Watching</span></div>
+      <div class="spectator-stat"><span class="spectator-stat-val" id="spec-top-score">$0</span><span class="spectator-stat-lbl">Top Score</span></div>
+    </div>
+    <div class="spectator-leaderboard">
+      <div class="spectator-lb-header">
+        <span>📊 Live Leaderboard</span>
+        <span id="spec-mode-label" style="font-size:.75rem;color:var(--muted);font-family:'Share Tech Mono',monospace;"></span>
+      </div>
+      <div id="spectator-lb-rows"></div>
+    </div>
+    <!-- Spectator chat panel -->
+    <div class="spectator-leaderboard" style="min-height:220px;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="spectator-lb-header">
+        <span>💬 Chat</span>
+        <span id="spec-chat-unread" style="background:var(--ruby);color:#fff;font-family:'Share Tech Mono',monospace;font-size:.65rem;padding:.1rem .4rem;border-radius:99px;display:none;"></span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:.6rem .8rem;display:flex;flex-direction:column;gap:.3rem;" id="spectator-chat-msgs"></div>
+      <div class="ingame-chat-input-row">
+        <input type="text" id="spectator-chat-input" placeholder="Chat as spectator..." maxlength="200" onkeydown="spectatorChatKeyDown(event)">
+        <button onclick="sendSpectatorChat()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <div class="game-topbar">
     <div class="game-title">⛏ GEM RUSH</div>
     <div style="display:flex;align-items:center;gap:.7rem;">
       <span id="game-timer">⏱ 5:00</span>
+      <span id="topbar-spectator-count" style="font-size:.75rem;color:#9040f0;font-family:'Share Tech Mono',monospace;display:none;"></span>
       <div style="font-size:.8rem;color:var(--muted);font-family:'Share Tech Mono',monospace" id="topbar-code"></div>
     </div>
     <button class="topbar-end-btn" id="end-game-btn" onclick="confirmEndGame()" style="display:none;">🏁 End Game</button>
@@ -953,11 +1043,13 @@
         <div class="panel-tab" onclick="switchTab('players',this)">Players</div>
         <div class="panel-tab" onclick="switchTab('sabotage',this)">Sabotage</div>
         <div class="panel-tab" onclick="switchTab('achievements',this)">Badges</div>
+        <div class="panel-tab panel-tab-wrap" onclick="switchTab('chat',this)" id="chat-panel-tab">Chat<span class="ingame-chat-unread" id="ingame-chat-unread"></span></div>
       </div>
       <div class="panel-content" id="panel-upgrades"></div>
       <div class="panel-content" id="panel-players" style="display:none"></div>
       <div class="panel-content" id="panel-sabotage" style="display:none"></div>
       <div class="panel-content" id="panel-achievements" style="display:none"></div>
+      <div class="panel-content ingame-chat-panel" id="panel-chat" style="display:none;padding:0;"></div>
     </div>
   </div>
 </div>
@@ -1117,6 +1209,9 @@ function prestigeBadgeHTML(rank) {
 let socket;
 let mySocketId = null;
 let isHost = false;
+let isSpectator = false;
+let spectatorName = '';
+let spectatorAvatar = '👁';
 let lobbyCode = null;
 let selfState = null;
 let allPlayers = [];
@@ -1140,6 +1235,7 @@ let _rankToastTimer = null; // timer for hiding the rank change toast
 const orbitMiners = {}; // upgradeId -> DOM element
 let chatOpen = false;
 let chatUnread = 0;
+let ingameChatUnread = 0; // unread count for in-game chat tab
 
 // ─── Title nav ─────────────────────────────────────────────────────────────────
 // Auto-dash for lobby code input
@@ -1232,12 +1328,22 @@ function refreshServerList() {
       const modeLabel = l.gameMode === 'timed' ? `⏱ Timed (${Math.round(l.gameDuration/60)}m)` : l.gameMode === 'teams' ? '🤝 Teams' : '♾️ Unlimited';
       const row = document.createElement('div');
       row.className = 'server-row';
-      row.innerHTML = `
-        <div class="server-row-info">
-          <div class="server-row-code">${l.code}</div>
-          <div class="server-row-meta">${l.hostName} · ${modeLabel} · ${l.playerCount}/${l.maxPlayers} players</div>
-        </div>
-        <button class="server-row-join" onclick="quickJoin('${l.code}',event)">JOIN</button>`;
+      if (l.inProgress) {
+        const specCount = l.spectatorCount ? ` · ${l.spectatorCount} watching` : '';
+        row.innerHTML = `
+          <div class="server-row-info">
+            <div class="server-row-code">${l.code} <span style="font-size:.7rem;color:#9040f0;background:rgba(144,64,240,.1);border:1px solid rgba(144,64,240,.3);border-radius:3px;padding:.05rem .35rem;">IN PROGRESS</span></div>
+            <div class="server-row-meta">${l.hostName} · ${modeLabel} · ${l.playerCount} players${specCount}</div>
+          </div>
+          <button class="server-row-join" style="background:linear-gradient(135deg,#9040f0,#6020c0);" onclick="watchLobby('${l.code}',event)">👁 WATCH</button>`;
+      } else {
+        row.innerHTML = `
+          <div class="server-row-info">
+            <div class="server-row-code">${l.code}</div>
+            <div class="server-row-meta">${l.hostName} · ${modeLabel} · ${l.playerCount}/${l.maxPlayers} players</div>
+          </div>
+          <button class="server-row-join" onclick="quickJoin('${l.code}',event)">JOIN</button>`;
+      }
       container.appendChild(row);
     });
   }).catch(() => {
@@ -1248,6 +1354,11 @@ function refreshServerList() {
 function quickJoin(code) {
   document.getElementById('join-code').value = code;
   joinLobby();
+}
+
+function watchLobby(code) {
+  document.getElementById('join-code').value = code;
+  joinLobby(); // joinLobby handles spectator path automatically when server is in-progress
 }
 
 // ─── Lobby mode change (host in lobby) ─────────────────────────────────────────
@@ -1409,6 +1520,183 @@ function clearChat() {
   clearChatUnread();
 }
 
+// ─── In-game Chat (sidebar panel) ──────────────────────────────────────────────
+function initIngameChatPanel() {
+  const panel = document.getElementById('panel-chat');
+  if (!panel || panel.dataset.initialized) return;
+  panel.dataset.initialized = '1';
+  panel.innerHTML = `
+    <div class="ingame-chat-msgs" id="ingame-chat-msgs"></div>
+    <div class="ingame-chat-input-row">
+      <input type="text" id="ingame-chat-input" placeholder="Chat..." maxlength="200" onkeydown="ingameChatKeyDown(event)" style="font-size:16px">
+      <button onclick="sendIngameChat()">Send</button>
+    </div>`;
+  addIngameChatMessage({ system: true, text: 'Chat is live! 💬' });
+}
+
+function addIngameChatMessage({ name, avatar, color, text, isMe, system, isSpectator: fromSpec }) {
+  const container = document.getElementById('ingame-chat-msgs');
+  if (!container) return;
+  const div = document.createElement('div');
+  if (system) {
+    div.className = 'chat-msg chat-system';
+    div.textContent = text;
+  } else {
+    div.className = 'chat-msg' + (isMe ? ' chat-mine' : '');
+    const sender = document.createElement('span');
+    sender.className = 'chat-sender';
+    sender.style.color = fromSpec ? '#6a7090' : (color || 'var(--gold)');
+    sender.textContent = (fromSpec ? '👁 ' : '') + avatar + ' ' + name + ':';
+    div.appendChild(sender);
+    div.appendChild(document.createTextNode(' ' + text));
+  }
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  // Unread badge when not on chat tab
+  if (currentTab !== 'chat' && !system) {
+    ingameChatUnread++;
+    const badge = document.getElementById('ingame-chat-unread');
+    if (badge) { badge.textContent = ingameChatUnread; badge.classList.add('visible'); }
+  }
+}
+
+function clearIngameChatUnread() {
+  ingameChatUnread = 0;
+  const badge = document.getElementById('ingame-chat-unread');
+  if (badge) { badge.textContent = ''; badge.classList.remove('visible'); }
+}
+
+function sendIngameChat() {
+  const inp = document.getElementById('ingame-chat-input');
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  socket.emit('lobby:chat', { text }, (res) => {
+    if (res && !res.ok) showToast('❌', 'Chat error', 'Could not send message.');
+  });
+}
+
+function ingameChatKeyDown(e) {
+  if (e.key === 'Enter') { e.preventDefault(); sendIngameChat(); }
+}
+
+// ─── Spectator Functions ────────────────────────────────────────────────────────
+function addSpectatorChatMessage({ name, avatar, color, text, isMe, system, isSpectator: fromSpec }) {
+  const container = document.getElementById('spectator-chat-msgs');
+  if (!container) return;
+  const div = document.createElement('div');
+  if (system) {
+    div.className = 'chat-msg chat-system';
+    div.textContent = text;
+  } else {
+    div.className = 'chat-msg' + (isMe ? ' chat-mine' : '');
+    const sender = document.createElement('span');
+    sender.className = 'chat-sender';
+    sender.style.color = fromSpec ? '#6a7090' : (color || 'var(--gold)');
+    sender.textContent = (fromSpec ? '👁 ' : '') + avatar + ' ' + name + ':';
+    div.appendChild(sender);
+    div.appendChild(document.createTextNode(' ' + text));
+  }
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function clearSpectatorChat() {
+  const c = document.getElementById('spectator-chat-msgs');
+  if (c) c.innerHTML = '';
+}
+
+function sendSpectatorChat() {
+  const inp = document.getElementById('spectator-chat-input');
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  socket.emit('lobby:chat', { text }, (res) => {
+    if (res && !res.ok) showToast('❌', 'Chat error', 'Could not send message.');
+  });
+}
+
+function spectatorChatKeyDown(e) {
+  if (e.key === 'Enter') { e.preventDefault(); sendSpectatorChat(); }
+}
+
+function renderSpectatorLeaderboard(players) {
+  const container = document.getElementById('spectator-lb-rows');
+  if (!container) return;
+  const sorted = [...players].sort((a, b) =>
+    (b.totalEarned + (b.unsoldValue||0)) - (a.totalEarned + (a.unsoldValue||0))
+  );
+  const topScore = sorted[0] ? (sorted[0].totalEarned + (sorted[0].unsoldValue||0)) : 1;
+  const medals = ['🥇','🥈','🥉','4️⃣'];
+  container.innerHTML = '';
+  sorted.forEach((p, i) => {
+    const score = p.totalEarned + (p.unsoldValue||0);
+    const pct = topScore > 0 ? Math.max(4, Math.round((score/topScore)*100)) : 4;
+    const row = document.createElement('div');
+    row.className = 'spectator-lb-row';
+    row.innerHTML = `
+      <div class="spectator-lb-rank">${medals[i]||i+1}</div>
+      <div style="flex:1">
+        <div class="spectator-lb-name">${p.avatar} ${p.name}${prestigeBadgeHTML(p.prestigeRank)}</div>
+        <div class="spectator-lb-bar-wrap"><div class="spectator-lb-bar" style="width:${pct}%;background:${p.color||'var(--gold)'}"></div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="spectator-lb-score">$${score.toLocaleString()}</div>
+        <div class="spectator-lb-sub">⚒ ${p.autoMine}/s auto</div>
+      </div>`;
+    container.appendChild(row);
+  });
+  // Update stats
+  const pcEl = document.getElementById('spec-player-count');
+  const tsEl = document.getElementById('spec-top-score');
+  if (pcEl) pcEl.textContent = players.length;
+  if (tsEl) tsEl.textContent = '$' + topScore.toLocaleString();
+}
+
+function exitSpectator() {
+  isSpectator = false;
+  lobbyCode = null;
+  sessionToken = null;
+  clearSession();
+  clearSpectatorChat();
+  showScreen('title-screen');
+  showHomeCard();
+}
+
+// ─── Host: Kick & Transfer ──────────────────────────────────────────────────────
+async function kickPlayer(targetSocketId, targetName, isSpec) {
+  const label = isSpec ? 'spectator' : 'player';
+  if (!await showConfirm({
+    icon: '🚫',
+    title: `Kick ${label}?`,
+    msg: `${targetName} will be removed from the lobby.`,
+    okText: 'Kick',
+    cancelText: 'Cancel'
+  })) return;
+  socket.emit('lobby:kick', { targetSocketId }, (res) => {
+    if (!res?.ok) showToast('❌', 'Error', res?.error || 'Could not kick.');
+    else showToast('🚫', 'Kicked', `${targetName} was removed.`);
+  });
+}
+
+async function transferHost(targetSocketId, targetName) {
+  if (!await showConfirm({
+    icon: '👑',
+    title: 'Transfer Host?',
+    msg: `${targetName} will become the new host.`,
+    okText: 'Transfer',
+    okSafe: true,
+    cancelText: 'Cancel'
+  })) return;
+  socket.emit('lobby:transferHost', { targetSocketId }, (res) => {
+    if (!res?.ok) showToast('❌', 'Error', res?.error || 'Could not transfer.');
+    else { isHost = false; showToast('👑', 'Transferred', `${targetName} is now host.`); }
+  });
+}
+
+
 // ─── Socket setup ──────────────────────────────────────────────────────────────
 function initSocket() {
   socket = io();
@@ -1477,7 +1765,8 @@ function initSocket() {
   socket.on('connect_error', () => setBadge('connecting', 'Connecting...'));
 
   socket.on('lobby:state', (data) => {
-    renderLobbySlots(data.players);
+    window._lobbyHostId = data.hostId;
+    renderLobbySlots(data.players, data.spectators || []);
     renderAvatarPicker();
     // Update mode badge if server pushed updated mode
     if (data.gameMode) updateLobbyModeBadge(data.gameMode, data.gameDuration);
@@ -1523,6 +1812,17 @@ function initSocket() {
 
   socket.on('lobby:chatMessage', (data) => {
     const isMe = data.socketId === mySocketId;
+    // Route to spectator screen chat if spectating
+    if (isSpectator && document.getElementById('spectator-screen')?.classList.contains('active')) {
+      addSpectatorChatMessage({ ...data, isMe });
+      return;
+    }
+    // Route to in-game chat panel if game is active
+    const gameActive = document.getElementById('game-screen')?.classList.contains('active');
+    if (gameActive) {
+      addIngameChatMessage({ ...data, isMe });
+      return;
+    }
     addChatMessage({ ...data, isMe });
   });
 
@@ -1588,13 +1888,28 @@ function initSocket() {
     initMobilePanel();
     renderUpgrades();
     renderAchievements();
+    initIngameChatPanel();
     startSabCooldownTick();
     if (gameMode === 'timed' && duration) startClientTimer(duration);
   });
 
-  socket.on('game:state', ({ players }) => {
+  socket.on('game:state', ({ players, spectatorCount }) => {
     allPlayers = players;
     checkRankChange();
+    // Update spectator count in topbar if present
+    const specEl = document.getElementById('topbar-spectator-count');
+    if (specEl && spectatorCount > 0) {
+      specEl.textContent = `👁 ${spectatorCount}`;
+      specEl.style.display = 'inline';
+    } else if (specEl) {
+      specEl.style.display = 'none';
+    }
+    // Update spectator screen if active
+    if (isSpectator) {
+      renderSpectatorLeaderboard(players);
+      const scEl = document.getElementById('spec-spectator-count');
+      if (scEl) scEl.textContent = spectatorCount || 1;
+    }
     if (currentTab === 'players') renderPlayers();
     if (currentTab === 'sabotage') renderSabotage();
   });
@@ -1705,7 +2020,7 @@ function initSocket() {
   });
 
   socket.on('lobby:closed', ({ reason }) => {
-    lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
+    lobbyCode = null; isHost = false; isSpectator = false; selfState = null; allPlayers = []; myLastRank = null;
     sessionToken = null;
     stopClientTimer?.(); stopSabCooldownTick?.(); removeFrozenOverlay?.(); clearOrbitMiners?.();
     clearSession();
@@ -1715,6 +2030,30 @@ function initSocket() {
     showScreen('title-screen');
     showHomeCard?.();
     showToast('🚪', 'Lobby Closed', reason || 'The host ended the lobby.');
+  });
+
+  socket.on('lobby:kicked', ({ reason }) => {
+    lobbyCode = null; isHost = false; isSpectator = false; selfState = null; allPlayers = []; myLastRank = null;
+    sessionToken = null;
+    stopClientTimer?.(); stopSabCooldownTick?.(); removeFrozenOverlay?.(); clearOrbitMiners?.();
+    clearSession();
+    const _chatWrap = document.getElementById('lobby-chat-wrap');
+    if (_chatWrap) _chatWrap.style.display = 'none';
+    clearChat?.(); clearSpectatorChat?.();
+    showScreen('title-screen');
+    showHomeCard?.();
+    showToast('🚫', 'Removed', reason || 'You were removed from the lobby.');
+  });
+
+  socket.on('spectator:gameDone', ({ message }) => {
+    isSpectator = false;
+    lobbyCode = null;
+    sessionToken = null;
+    clearSession();
+    clearSpectatorChat();
+    showScreen('title-screen');
+    showHomeCard();
+    showToast('👁', 'Game Over', message || 'The game ended.');
   });
 }
 
@@ -1763,6 +2102,33 @@ function joinLobby() {
   socket.emit('lobby:join', { playerName: getPlayerName(), code }, (res) => {
     if (!res.ok) { err.style.display='block'; err.textContent=res.error; return; }
     err.style.display = 'none';
+
+    // ── Spectator path ──────────────────────────────────────────────────
+    if (res.isSpectator) {
+      isSpectator = true;
+      isHost = false;
+      lobbyCode = res.code;
+      spectatorName = res.spectatorName || getPlayerName();
+      spectatorAvatar = res.spectatorAvatar || '👁';
+      sessionToken = res.token;
+      saveSession(res.token, res.code, false, spectatorName);
+      gameMode = res.mode || 'unlimited';
+      // Show spectator screen
+      document.getElementById('spectator-code').textContent = 'Lobby: ' + res.code;
+      const modeLabels = { timed: `⏱ Timed (${Math.round((res.duration||300)/60)}m)`, teams: '🤝 Teams', unlimited: '♾️ Unlimited' };
+      const specModeEl = document.getElementById('spec-mode-label');
+      if (specModeEl) specModeEl.textContent = modeLabels[gameMode] || gameMode;
+      if (gameMode === 'timed' && res.duration) {
+        const specTimerEl = document.getElementById('spectator-timer');
+        if (specTimerEl) specTimerEl.style.display = 'inline';
+      }
+      clearSpectatorChat();
+      addSpectatorChatMessage({ system: true, text: `You joined as spectator ${spectatorAvatar} ${spectatorName}. Watch and chat!` });
+      showScreen('spectator-screen');
+      return;
+    }
+
+    // ── Regular player path ─────────────────────────────────────────────
     lobbyCode = res.code;
     isHost = false;
     selfState = res.self;
@@ -1888,7 +2254,7 @@ function stopClientTimer() {
   const el = document.getElementById('game-timer');
   if (el) el.style.display = 'none';
 }
-function renderLobbySlots(players) {
+function renderLobbySlots(players, spectators) {
   const container = document.getElementById('lobby-slots');
   container.innerHTML = '';
   const AVATARS = ['⛏','🧙','🤠','🤖','👾','🐉','🦊','🏴‍☠️'];
@@ -1896,16 +2262,38 @@ function renderLobbySlots(players) {
   for (let i = 0; i < 4; i++) {
     const p = players[i];
     const isYou = p && p.socketId === mySocketId;
+    const isThisHost = p && p.socketId === (window._lobbyHostId || null);
     const div = document.createElement('div');
     div.className = 'player-slot ' + (p ? (isYou ? 'you filled' : 'filled') : '');
     if (p) {
+      const hostMark = isThisHost ? ' 👑' : '';
       div.innerHTML = `<div class="slot-icon" style="background:${p.color}22;color:${p.color}">${p.avatar}</div>
-        <div><div class="slot-name">${p.name}${isYou?'<span class="you-badge">YOU</span>':''}</div>
-        <div class="slot-sub">READY</div></div>`;
+        <div style="flex:1"><div class="slot-name">${p.name}${hostMark}${isYou?'<span class="you-badge">YOU</span>':''}</div>
+        <div class="slot-sub">READY</div>
+        ${isHost && !isYou ? `<div class="player-slot-actions">
+          <button class="slot-action-btn slot-kick-btn" onclick="kickPlayer('${p.socketId}','${p.name.replace(/'/g,"\\'")}')">🚫 Kick</button>
+          ${!isThisHost ? `<button class="slot-action-btn slot-host-btn" onclick="transferHost('${p.socketId}','${p.name.replace(/'/g,"\\'")}')">👑 Make Host</button>` : ''}
+        </div>` : ''}
+        </div>`;
     } else {
       div.innerHTML = `<div class="slot-icon" style="background:var(--border);color:var(--muted)">+</div><div style="color:var(--muted);font-size:.9rem">Empty Slot</div>`;
     }
     container.appendChild(div);
+  }
+
+  // Spectator list
+  if (spectators && spectators.length > 0) {
+    const specSection = document.createElement('div');
+    specSection.className = 'spectator-list-section';
+    specSection.style.cssText = 'grid-column:1/-1;';
+    specSection.innerHTML = `<div class="spectator-list-title">👁 Spectators (${spectators.length})</div>`;
+    spectators.forEach(s => {
+      const chip = document.createElement('span');
+      chip.className = 'spectator-chip';
+      chip.innerHTML = `${s.avatar} ${s.name}${isHost ? `<button class="spectator-chip-kick" onclick="kickPlayer('${s.socketId}','${s.name.replace(/'/g,"\\'")}',true)" title="Remove spectator">✕</button>` : ''}`;
+      specSection.appendChild(chip);
+    });
+    container.appendChild(specSection);
   }
 }
 
@@ -2768,10 +3156,17 @@ function switchTab(tab, el) {
   document.getElementById('panel-players').style.display      = tab==='players'      ? 'block':'none';
   document.getElementById('panel-sabotage').style.display     = tab==='sabotage'     ? 'block':'none';
   document.getElementById('panel-achievements').style.display  = tab==='achievements' ? 'block':'none';
+  document.getElementById('panel-chat').style.display         = tab==='chat'         ? 'flex':'none';
   if (tab==='players') renderPlayers();
   if (tab==='achievements') renderAchievements();
   if (tab==='upgrades') renderUpgrades();
   if (tab==='sabotage') renderSabotage();
+  if (tab==='chat') {
+    clearIngameChatUnread();
+    initIngameChatPanel();
+    const msgs = document.getElementById('ingame-chat-msgs');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  }
 }
 
 function initMobilePanel() {
@@ -2874,7 +3269,7 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 function goTitle() {
-  lobbyCode = null; isHost = false; selfState = null; allPlayers = []; myLastRank = null;
+  lobbyCode = null; isHost = false; isSpectator = false; selfState = null; allPlayers = []; myLastRank = null;
   sessionToken = null; gameMode = 'unlimited'; lobbyIsPublic = false;
   const _chatWrap = document.getElementById('lobby-chat-wrap');
   if (_chatWrap) _chatWrap.style.display = 'none';
