@@ -1883,6 +1883,14 @@ function initSocket() {
 
   socket.on('lobby:state', (data) => {
     window._lobbyHostId = data.hostId;
+    // Detect player join/leave for lobby sounds
+    const prevCount = window._lastLobbyPlayerCount ?? -1;
+    const newCount = data.players ? data.players.length : 0;
+    if (prevCount >= 0 && newCount !== prevCount) {
+      if (newCount > prevCount) AudioEngine.playerJoin();
+      else AudioEngine.playerLeave();
+    }
+    window._lastLobbyPlayerCount = newCount;
     renderLobbySlots(data.players, data.spectators || []);
     renderAvatarPicker();
     // Update mode badge if server pushed updated mode
@@ -1984,7 +1992,7 @@ function initSocket() {
     });
 
     // Audio + haptic cue
-    AudioEngine.click();
+    AudioEngine.countdownBeep(count === 1);
     haptic(count === 1 ? [30,20,40] : 40);
   });
 
@@ -1996,6 +2004,7 @@ function initSocket() {
     // Dismiss countdown overlay
     const overlay = document.getElementById('countdown-overlay');
     if (overlay) overlay.classList.remove('active');
+    AudioEngine.gameStart();
     gameMode = mode || gameMode;
     if (rGoal) rushGoal = rGoal;
     if (mLives) lastMinerMaxLives = mLives;
@@ -2068,6 +2077,7 @@ function initSocket() {
 
   socket.on('achievements:unlocked', (list) => {
     list.forEach(a => showToast(a.emoji, 'Achievement Unlocked!', a.name));
+    AudioEngine.achievement();
     if (selfState) selfState.achievementsUnlocked = selfState.achievementsUnlocked || [];
     list.forEach(a => { if (!selfState.achievementsUnlocked.includes(a.id)) selfState.achievementsUnlocked.push(a.id); });
     if (currentTab === 'achievements') renderAchievements();
@@ -2084,6 +2094,11 @@ function initSocket() {
     removeFrozenOverlay();
     resetGameModeHUD();
     showEndScreen(results, mode, awards);
+    // Play win or lose sound
+    const myName = selfState?.name || '';
+    const winner = results && results[0];
+    const isWinner = winner && (winner.name === myName || (mode === 'teams' && results.find(p => p.name === myName)?.team === winner.team));
+    setTimeout(() => isWinner ? AudioEngine.win() : AudioEngine.lose(), 300);
     // Host gets the return button; non-hosts see waiting message
     const returnBtn = document.getElementById('return-lobby-btn');
     const waitMsg   = document.getElementById('end-waiting-msg');
@@ -2094,6 +2109,7 @@ function initSocket() {
   socket.on('lastMiner:lifeLost', ({ livesLeft, attackerName, attackerAvatar, sabotageId }) => {
     showToast('💔', 'Life Lost!', `${attackerAvatar} ${attackerName} hit you with ${sabotageId.replace(/_/g,' ')}! ${livesLeft} live${livesLeft !== 1 ? 's' : ''} left.`);
     updateLivesHUD(livesLeft, lastMinerMaxLives);
+    AudioEngine.lifeLost();
     haptic([60, 30, 60, 30, 80]);
   });
 
@@ -2104,6 +2120,7 @@ function initSocket() {
   socket.on('lastMiner:eliminated', ({ attackerName, attackerAvatar }) => {
     showToast('💀', 'You\'re Out!', `${attackerAvatar} ${attackerName} landed the killing blow. Now spectating...`);
     updateLivesHUD(0, lastMinerMaxLives);
+    AudioEngine.eliminated();
     // Disable mine button
     const mineBtn = document.getElementById('mine-btn');
     if (mineBtn) { mineBtn.disabled = true; mineBtn.style.opacity = '0.3'; mineBtn.title = 'You are eliminated!'; }
@@ -2123,7 +2140,7 @@ function initSocket() {
   });
 
   socket.on('sabotage:blocked', (data) => {
-    AudioEngine.sell(); // positive ding
+    AudioEngine.sabotageBlocked();
     haptic([30, 20, 30]);
     showToast('🛡', 'Sabotage Blocked!', `${data.attackerAvatar} ${data.attackerName}'s ${data.sabotageId.replace('_',' ')} was absorbed by your Gem Insurance!`);
     // Shield is used up — UI will update via player:self
@@ -2162,7 +2179,7 @@ function initSocket() {
       setTimeout(() => confetti({ particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.5 } }), 300);
     }
     haptic([50, 30, 50, 30, 80]);
-    AudioEngine.sell();
+    AudioEngine.prestige();
     updateStats();
     renderUpgrades();
   });
@@ -2584,7 +2601,101 @@ const AudioEngine = (() => {
       playTone({ freq:120, freq2:60, type:'triangle', gain:0.25, duration:0.25, attack:0.003, decay:0.22 });
       const sparks = [1200,1500,1800,2200];
       sparks.forEach((f,i)=>setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.08, duration:0.1, attack:0.002, decay:0.09 }),i*30));
-    }
+    },
+    upgrade() {
+      // Crisp upward two-tone — satisfying but quick
+      playTone({ freq:520, type:'triangle', gain:0.14, duration:0.07, attack:0.003, decay:0.06 });
+      setTimeout(()=>playTone({ freq:780, type:'sine', gain:0.18, duration:0.14, attack:0.004, decay:0.12 }), 65);
+    },
+    achievement() {
+      // Jingle: three rising notes with a shimmer tail
+      const notes = [659, 880, 1047];
+      notes.forEach((f,i)=>{
+        setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.16, duration:0.18, attack:0.008, decay:0.15 }), i*90);
+      });
+      setTimeout(()=>playTone({ freq:1320, type:'triangle', gain:0.1, duration:0.25, attack:0.01, decay:0.22 }), 300);
+    },
+    prestige() {
+      // Grand ascending chord sweep — bigger than rareFanfare
+      const notes = [262, 330, 392, 523, 659, 784, 1047];
+      notes.forEach((f,i)=>{
+        setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.15, duration:0.35, attack:0.01, decay:0.3 }), i*55);
+        setTimeout(()=>playTone({ freq:f*1.5, type:'triangle', gain:0.05, duration:0.25, attack:0.01, decay:0.22 }), i*55+28);
+      });
+    },
+    gameStart() {
+      // Short punchy "GO!" hit — noise burst + high tone
+      playNoise({ gain:0.3, duration:0.12, attack:0.002, decay:0.1, lowpass:2000 });
+      playTone({ freq:880, type:'sine', gain:0.22, duration:0.22, attack:0.005, decay:0.2 });
+      setTimeout(()=>playTone({ freq:1320, type:'triangle', gain:0.14, duration:0.18, attack:0.005, decay:0.15 }), 80);
+    },
+    countdownBeep(isFinal) {
+      if (isFinal) {
+        // "GO!" — bright double hit
+        playTone({ freq:1047, type:'sine', gain:0.22, duration:0.12, attack:0.003, decay:0.1 });
+        setTimeout(()=>playTone({ freq:1568, type:'sine', gain:0.26, duration:0.22, attack:0.003, decay:0.2 }), 100);
+      } else {
+        // Tick — short, punchy, slightly lower
+        playTone({ freq:660, type:'triangle', gain:0.18, duration:0.09, attack:0.002, decay:0.08 });
+      }
+    },
+    win() {
+      // Victory fanfare — full ascending arpeggio + swell
+      const notes = [523, 659, 784, 1047, 1319, 1568];
+      notes.forEach((f,i)=>{
+        setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.18, duration:0.3, attack:0.01, decay:0.27 }), i*70);
+      });
+      setTimeout(()=>{
+        playTone({ freq:2093, type:'sine', gain:0.2, duration:0.5, attack:0.02, decay:0.45 });
+        playTone({ freq:1047, type:'triangle', gain:0.08, duration:0.5, attack:0.02, decay:0.45 });
+      }, notes.length*70 + 30);
+    },
+    lose() {
+      // Descending wah-wah
+      playTone({ freq:440, freq2:280, type:'sawtooth', gain:0.15, duration:0.35, attack:0.01, decay:0.3 });
+      setTimeout(()=>playTone({ freq:350, freq2:200, type:'sawtooth', gain:0.12, duration:0.35, attack:0.01, decay:0.3 }), 280);
+    },
+    rankUp() {
+      // Quick bright sting — two ascending notes
+      playTone({ freq:880, type:'sine', gain:0.14, duration:0.09, attack:0.003, decay:0.08 });
+      setTimeout(()=>playTone({ freq:1320, type:'sine', gain:0.16, duration:0.14, attack:0.003, decay:0.12 }), 80);
+    },
+    rankDown() {
+      // Soft descending thud
+      playTone({ freq:300, freq2:180, type:'triangle', gain:0.12, duration:0.2, attack:0.005, decay:0.18 });
+    },
+    playerJoin() {
+      // Soft two-tone "ding-dong" — welcoming
+      playTone({ freq:880, type:'sine', gain:0.12, duration:0.1, attack:0.005, decay:0.09 });
+      setTimeout(()=>playTone({ freq:660, type:'sine', gain:0.1, duration:0.14, attack:0.005, decay:0.12 }), 110);
+    },
+    playerLeave() {
+      // Muted descending tone — departure
+      playTone({ freq:440, freq2:330, type:'triangle', gain:0.1, duration:0.18, attack:0.005, decay:0.16 });
+    },
+    lifeLost() {
+      // Sharp low hit + descending tail
+      playNoise({ gain:0.35, duration:0.12, attack:0.002, decay:0.1, lowpass:500 });
+      playTone({ freq:200, freq2:80, type:'sawtooth', gain:0.2, duration:0.3, attack:0.003, decay:0.27 });
+    },
+    eliminated() {
+      // Dramatic three-step descent
+      playTone({ freq:400, type:'sawtooth', gain:0.18, duration:0.2, attack:0.005, decay:0.18 });
+      setTimeout(()=>playTone({ freq:280, type:'sawtooth', gain:0.16, duration:0.2, attack:0.005, decay:0.18 }), 200);
+      setTimeout(()=>playTone({ freq:160, freq2:80, type:'triangle', gain:0.18, duration:0.4, attack:0.008, decay:0.38 }), 400);
+      setTimeout(()=>playNoise({ gain:0.2, duration:0.25, attack:0.003, decay:0.22, lowpass:300 }), 400);
+    },
+    sabotageBlocked() {
+      // Metallic clang — shield absorbing impact
+      playNoise({ gain:0.22, duration:0.08, attack:0.001, decay:0.07, lowpass:3000 });
+      playTone({ freq:1200, type:'triangle', gain:0.18, duration:0.12, attack:0.002, decay:0.11 });
+      setTimeout(()=>playTone({ freq:900, type:'sine', gain:0.12, duration:0.2, attack:0.005, decay:0.18 }), 80);
+    },
+    saborageSent() {
+      // Sneaky low swoosh
+      playTone({ freq:300, freq2:80, type:'sawtooth', gain:0.14, duration:0.2, attack:0.003, decay:0.18 });
+      playNoise({ gain:0.1, duration:0.15, attack:0.003, decay:0.12, lowpass:600 });
+    },
   };
 })();
 
@@ -3088,6 +3199,7 @@ function buyUpgrade(upgradeId) {
     selfState = res.self;
     const u = [...UPGRADES, ...PRESTIGE_UPGRADES].find(x => x.id === upgradeId);
     showToast(u.emoji, 'Upgraded!', `${u.name} is now level ${selfState.upgradeLevels[upgradeId]}`);
+    AudioEngine.upgrade();
     updateStats();
     syncOrbitMiners();
     renderUpgrades();
@@ -3622,10 +3734,12 @@ function checkRankChange() {
       const passed = sorted[myIdx + 1]; // player now just below us
       const msg = passed ? `Passed ${passed.avatar} ${passed.name}` : `You're #${newRank}!`;
       showRankToast('up', newRank, total, msg);
+      AudioEngine.rankUp();
     } else {
       const overtaker = sorted[myIdx - 1]; // player now just above us
       const msg = overtaker ? `${overtaker.avatar} ${overtaker.name} overtook you` : `Dropped to #${newRank}`;
       showRankToast('down', newRank, total, msg);
+      AudioEngine.rankDown();
     }
   }
 
@@ -3745,6 +3859,7 @@ function useSabotage(sabotageId, targetSocketId) {
     const sab = SABOTAGES.find(s => s.id === sabotageId);
     const target = allPlayers.find(p => p.socketId === targetSocketId);
     showToast(sab.emoji, sab.name + ' deployed!', `Cost $${res.cost.toLocaleString()} · targeting ${target?.name || 'them'}`);
+    AudioEngine.saborageSent();
     updateStats();
     renderSabotage();
   });
