@@ -776,7 +776,7 @@
 <div id="a11y-overlay" onclick="closeA11yBackdrop(event)">
   <div id="a11y-box">
     <div class="a11y-title">♿ Accessibility</div>
-    <div class="a11y-subtitle">Reduce visual effects that may cause discomfort.</div>
+    <div class="a11y-subtitle">Adjust visual effects and audio to your liking.</div>
     <div class="a11y-row">
       <div class="a11y-label">
         Screen Shake
@@ -790,6 +790,22 @@
         <small>Gem drops & +number popups</small>
       </div>
       <button class="a11y-toggle" id="toggle-particles" onclick="toggleA11y('particles', this)"></button>
+    </div>
+    <div class="a11y-row">
+      <div class="a11y-label">
+        Sound Effects
+        <small>All in-game audio</small>
+      </div>
+      <button class="a11y-toggle" id="toggle-sound" onclick="toggleA11y('sound', this)"></button>
+    </div>
+    <div class="a11y-row" id="volume-row" style="flex-direction:column;align-items:stretch;gap:.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="a11y-label">Volume <small>Scales all sound effects</small></div>
+        <span id="volume-val" style="font-family:'Share Tech Mono',monospace;font-size:.8rem;color:var(--gold);min-width:2.5rem;text-align:right;"></span>
+      </div>
+      <input type="range" id="volume-slider" min="0" max="1" step="0.05"
+        style="width:100%;accent-color:var(--gold);cursor:pointer;"
+        oninput="onVolumeSlider(this.value)" onchange="onVolumeSliderCommit(this.value)">
     </div>
     <button class="a11y-close" onclick="closeA11y()">Done</button>
   </div>
@@ -1397,6 +1413,7 @@ function pickAvatar(av) {
       document.querySelectorAll('.avatar-opt').forEach(el => {
         el.classList.toggle('selected', el.textContent === av);
       });
+      AudioEngine.uiClick();
     }
   });
 }
@@ -1485,6 +1502,7 @@ function selectLobbyMode(mode) {
   document.querySelectorAll('[id^="lmode-"]').forEach(c => c.classList.remove('active'));
   const el = document.getElementById('lmode-' + mode);
   if (el) el.classList.add('active');
+  AudioEngine.modeSelect();
 }
 
 function applyLobbyMode() {
@@ -1505,6 +1523,7 @@ function applyLobbyMode() {
     updateLobbyModeBadge(res.mode, res.duration, res.rushGoal, res.maxLives);
     document.getElementById('change-mode-panel').style.display = 'none';
     showToast('🎮', 'Mode Changed', `Now playing: ${res.mode}`);
+    AudioEngine.upgrade();
   });
 }
 
@@ -1517,6 +1536,7 @@ function toggleLobbyPublic() {
     if (btn) btn.textContent = lobbyIsPublic ? '🔒 Make Private' : '🌐 Make Public';
     showToast(lobbyIsPublic ? '🌐' : '🔒', lobbyIsPublic ? 'Lobby is Public' : 'Lobby is Private',
       lobbyIsPublic ? 'Players can find this in the server list.' : 'Players need your code to join.');
+    AudioEngine.uiClick();
   });
 }
 
@@ -1565,6 +1585,7 @@ function toggleChat() {
   const toggle  = document.getElementById('chat-toggle-btn');
   if (box)     box.classList.toggle('open', chatOpen);
   if (chevron) chevron.textContent = chatOpen ? '▲' : '▼';
+  AudioEngine.uiClick();
   if (chatOpen) {
     clearChatUnread();
     // Scroll to bottom when opening
@@ -1617,6 +1638,7 @@ function addChatMessage({ name, avatar, color, text, isMe, system }) {
     const toggle = document.getElementById('chat-toggle-btn');
     if (badge)  { badge.textContent = chatUnread; badge.classList.add('visible'); }
     if (toggle) toggle.classList.add('has-unread');
+    AudioEngine.codeType(); // very subtle ping so you notice without being annoyed
   }
 }
 
@@ -1924,6 +1946,7 @@ function initSocket() {
       document.getElementById('leave-lobby-btn').style.display = 'none';
       document.getElementById('end-lobby-btn').style.display = 'block';
       showToast('👑','You are now the host!','The previous host disconnected.');
+      AudioEngine.achievement();
     }
   });
 
@@ -2370,6 +2393,7 @@ function updateLobbyName() {
     if (res && res.ok) {
       if (selfState) selfState.name = newName;
       showToast('✏️','Name Updated','You are now: ' + newName);
+      AudioEngine.uiClick();
     }
   });
 }
@@ -2406,6 +2430,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 function startGame() {
+  AudioEngine.lobbyCreated();
   socket.emit('game:start', {}, (res) => {
     if (res && !res.ok) showToast('❌','Error', res.error);
   });
@@ -2430,7 +2455,10 @@ function returnToLobby() {
   });
 }
 function copyCode() {
-  navigator.clipboard.writeText(lobbyCode).then(() => showToast('📋','Copied!','Share this code with friends: ' + lobbyCode));
+  navigator.clipboard.writeText(lobbyCode).then(() => {
+    showToast('📋','Copied!','Share this code with friends: ' + lobbyCode);
+    AudioEngine.uiClick();
+  });
 }
 
 function updateLobbyModeBadge(mode, duration, rGoal, mLives) {
@@ -2525,9 +2553,13 @@ const AudioEngine = (() => {
     if (ctx && ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
+  function isSoundOn() { return getA11ySettings().sound !== false; }
+  function getVolume() { const v = getA11ySettings().volume; return (v === undefined ? 1 : v); }
 
   function playTone({ freq=440, freq2, type='sine', gain=0.18, duration=0.12, attack=0.005, decay=0.08, detune=0 }) {
+    if (!isSoundOn()) return;
     const c = getCtx(); if (!c) return;
+    const vol = getVolume();
     const t = c.currentTime;
     const osc = c.createOscillator();
     const env = c.createGain();
@@ -2536,14 +2568,16 @@ const AudioEngine = (() => {
     if (freq2) osc.frequency.exponentialRampToValueAtTime(freq2, t + duration);
     osc.detune.value = detune;
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(gain, t + attack);
+    env.gain.linearRampToValueAtTime(gain * vol, t + attack);
     env.gain.exponentialRampToValueAtTime(0.001, t + attack + decay);
     osc.connect(env); env.connect(c.destination);
     osc.start(t); osc.stop(t + duration + 0.05);
   }
 
   function playNoise({ gain=0.12, duration=0.08, attack=0.003, decay=0.06, lowpass=800 }) {
+    if (!isSoundOn()) return;
     const c = getCtx(); if (!c) return;
+    const vol = getVolume();
     const t = c.currentTime;
     const buf = c.createBuffer(1, c.sampleRate * duration, c.sampleRate);
     const d = buf.getChannelData(0);
@@ -2554,7 +2588,7 @@ const AudioEngine = (() => {
     filt.type = 'lowpass'; filt.frequency.value = lowpass;
     const env = c.createGain();
     env.gain.setValueAtTime(0,t);
-    env.gain.linearRampToValueAtTime(gain, t+attack);
+    env.gain.linearRampToValueAtTime(gain * vol, t+attack);
     env.gain.exponentialRampToValueAtTime(0.001, t+attack+decay);
     src.connect(filt); filt.connect(env); env.connect(c.destination);
     src.start(t); src.stop(t+duration+0.05);
@@ -2756,6 +2790,8 @@ function setA11ySetting(key, val) {
 }
 function isShakeEnabled()    { const s = getA11ySettings(); return s.shake    !== false; }
 function isParticlesEnabled(){ const s = getA11ySettings(); return s.particles !== false; }
+function isSoundEnabled()    { const s = getA11ySettings(); return s.sound    !== false; }
+function getSoundVolume()    { const s = getA11ySettings(); return s.volume !== undefined ? s.volume : 1; }
 
 // ─── Screen Shake ──────────────────────────────────────────────────────────────
 let _lastShakeTime = 0;
@@ -2787,6 +2823,17 @@ function openA11y() {
     const enabled = key === 'shake' ? isShakeEnabled() : isParticlesEnabled();
     btn.className = 'a11y-toggle' + (enabled ? ' on' : '');
   });
+  // Sync sound toggle
+  const soundBtn = document.getElementById('toggle-sound');
+  if (soundBtn) soundBtn.className = 'a11y-toggle' + (isSoundEnabled() ? ' on' : '');
+  // Sync volume slider
+  const slider = document.getElementById('volume-slider');
+  const valEl  = document.getElementById('volume-val');
+  const volRow = document.getElementById('volume-row');
+  const vol = getSoundVolume();
+  if (slider) slider.value = vol;
+  if (valEl)  valEl.textContent = Math.round(vol * 100) + '%';
+  if (volRow) volRow.style.opacity = isSoundEnabled() ? '1' : '0.35';
   overlay.classList.add('visible');
 }
 function closeA11y() {
@@ -2798,9 +2845,26 @@ function closeA11yBackdrop(e) {
 }
 function toggleA11y(key, btn) {
   const s = getA11ySettings();
-  const current = key === 'shake' ? isShakeEnabled() : isParticlesEnabled();
+  const current = key === 'shake' ? isShakeEnabled() : key === 'particles' ? isParticlesEnabled() : isSoundEnabled();
   setA11ySetting(key, !current);
   btn.className = 'a11y-toggle' + (!current ? ' on' : '');
+  // Dim/restore volume row when sound is toggled
+  if (key === 'sound') {
+    const volRow = document.getElementById('volume-row');
+    if (volRow) volRow.style.opacity = !current ? '1' : '0.35';
+    // Play a test tone when re-enabling so user knows it works
+    if (!current) setTimeout(() => AudioEngine.uiClick(), 50);
+  }
+}
+function onVolumeSlider(val) {
+  // Live label update while dragging — no save yet to avoid hammering localStorage
+  const valEl = document.getElementById('volume-val');
+  if (valEl) valEl.textContent = Math.round(val * 100) + '%';
+}
+function onVolumeSliderCommit(val) {
+  setA11ySetting('volume', parseFloat(val));
+  // Play a test tone so user can hear the new level
+  AudioEngine.uiClick();
 }
 
 
