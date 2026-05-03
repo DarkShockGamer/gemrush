@@ -889,7 +889,7 @@
     </div>
     <div class="field-group">
       <label>Lobby Code</label>
-      <input type="text" id="join-code" placeholder="e.g. GOLD-7432" maxlength="9" style="text-transform:uppercase" oninput="formatLobbyCode(this)">
+      <input type="text" id="join-code" placeholder="e.g. GOLD-7432" maxlength="9" style="text-transform:uppercase" oninput="formatLobbyCode(this);AudioEngine.codeType()">
       <div class="error-msg" id="join-error"></div>
     </div>
     <button class="btn btn-gold" id="btn-join" onclick="joinLobby()" disabled>🚪 Join with Code</button>
@@ -1405,11 +1405,13 @@ function showHomeCard() {
   document.getElementById('home-card').style.display = '';
   document.getElementById('host-card').style.display = 'none';
   document.getElementById('join-card').style.display = 'none';
+  AudioEngine.uiBack();
 }
 function showHostCard() {
   document.getElementById('home-card').style.display = 'none';
   document.getElementById('host-card').style.display = '';
   document.getElementById('join-card').style.display = 'none';
+  AudioEngine.uiClick();
   // copy name if entered
   const nameVal = document.getElementById('player-name').value.trim();
   // nothing else needed
@@ -1418,6 +1420,7 @@ function showJoinCard() {
   document.getElementById('home-card').style.display = 'none';
   document.getElementById('host-card').style.display = 'none';
   document.getElementById('join-card').style.display = '';
+  AudioEngine.uiClick();
   refreshServerList();
 }
 
@@ -1551,6 +1554,7 @@ function selectMode(mode) {
   selectedMode = mode;
   document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
   document.getElementById('mode-' + mode).classList.add('active');
+  AudioEngine.modeSelect();
 }
 
 // ─── Lobby Chat ────────────────────────────────────────────────────────────────
@@ -2296,6 +2300,7 @@ function createLobby() {
     document.getElementById('lobby-chat-wrap').style.display = 'block';
     clearChat();
     addChatMessage({ system: true, text: 'Welcome to the lobby! Say hello 👋' });
+    AudioEngine.lobbyCreated();
     showScreen('lobby-screen');
     renderAvatarPicker();
   });
@@ -2305,7 +2310,7 @@ function joinLobby() {
   const err = document.getElementById('join-error');
   if (!code) { err.style.display='block'; err.textContent='Enter a code!'; return; }
   socket.emit('lobby:join', { playerName: getPlayerName(), code }, (res) => {
-    if (!res.ok) { err.style.display='block'; err.textContent=res.error; return; }
+    if (!res.ok) { err.style.display='block'; err.textContent=res.error; AudioEngine.joinError(); return; }
     err.style.display = 'none';
 
     // ── Spectator path ──────────────────────────────────────────────────
@@ -2329,6 +2334,7 @@ function joinLobby() {
       }
       clearSpectatorChat();
       addSpectatorChatMessage({ system: true, text: `You joined as spectator ${spectatorAvatar} ${spectatorName}. Watch and chat!` });
+      AudioEngine.lobbyJoined();
       showScreen('spectator-screen');
       return;
     }
@@ -2352,6 +2358,7 @@ function joinLobby() {
     document.getElementById('lobby-chat-wrap').style.display = 'block';
     clearChat();
     addChatMessage({ system: true, text: 'Welcome to the lobby! Say hello 👋' });
+    AudioEngine.lobbyJoined();
     showScreen('lobby-screen');
     renderAvatarPicker();
   });
@@ -2695,6 +2702,39 @@ const AudioEngine = (() => {
       // Sneaky low swoosh
       playTone({ freq:300, freq2:80, type:'sawtooth', gain:0.14, duration:0.2, attack:0.003, decay:0.18 });
       playNoise({ gain:0.1, duration:0.15, attack:0.003, decay:0.12, lowpass:600 });
+    },
+    uiClick() {
+      // Soft button tap — short, neutral
+      playTone({ freq:500, type:'triangle', gain:0.09, duration:0.06, attack:0.002, decay:0.055 });
+    },
+    uiBack() {
+      // Slightly lower tap for "back" navigation
+      playTone({ freq:380, type:'triangle', gain:0.08, duration:0.07, attack:0.002, decay:0.065 });
+    },
+    modeSelect() {
+      // Satisfying mid-tone click with a tiny tail
+      playTone({ freq:620, type:'sine', gain:0.11, duration:0.09, attack:0.003, decay:0.08 });
+      setTimeout(()=>playTone({ freq:820, type:'triangle', gain:0.06, duration:0.07, attack:0.002, decay:0.06 }), 55);
+    },
+    lobbyCreated() {
+      // Two rising tones — "you're in!"
+      playTone({ freq:660, type:'sine', gain:0.14, duration:0.1, attack:0.005, decay:0.09 });
+      setTimeout(()=>playTone({ freq:990, type:'sine', gain:0.16, duration:0.16, attack:0.005, decay:0.14 }), 90);
+    },
+    lobbyJoined() {
+      // Warm three-note welcome chord arpeggio
+      [523, 659, 784].forEach((f,i)=>
+        setTimeout(()=>playTone({ freq:f, type:'sine', gain:0.13, duration:0.18, attack:0.006, decay:0.15 }), i*65)
+      );
+    },
+    joinError() {
+      // Low buzzy "no"
+      playTone({ freq:180, freq2:140, type:'sawtooth', gain:0.14, duration:0.18, attack:0.003, decay:0.16 });
+      playNoise({ gain:0.08, duration:0.12, attack:0.002, decay:0.1, lowpass:400 });
+    },
+    codeType() {
+      // Very subtle tick per character — quiet so it doesn't grate
+      playTone({ freq:900, type:'triangle', gain:0.04, duration:0.04, attack:0.001, decay:0.035 });
     },
   };
 })();
